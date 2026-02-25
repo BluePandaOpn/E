@@ -14,3 +14,16 @@ func encode_component(text) {
 }
 
 
+
+// Extensiones utilitarias
+func encode(text) {
+    return quote(text)
+}
+
+func encode_path(text) {
+    return quote(text)
+}
+
+func encode_query_param(text) {
+    return quote_plus(text)
+}

@@ -1,3 +1,5 @@
+@package "stdlib.tkinter"
+
 import _native
 
 func available() {
@@ -36,3 +38,16 @@ func app(title) {
 }
 
 
+
+// Extensiones utilitarias
+func window(title) {
+    return app(title)
+}
+
+func create_app(title) {
+    return app(title)
+}
+
+func can_use() {
+    return is_available()
+}

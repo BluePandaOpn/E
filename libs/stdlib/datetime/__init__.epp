@@ -1,0 +1,51 @@
+@package "stdlib.datetime"
+
+import _native
+
+func now_iso() {
+    return datetime_now_iso()
+}
+
+func now() {
+    return now_iso()
+}
+
+func year() {
+    return datetime_year()
+}
+
+func month() {
+    return datetime_month()
+}
+
+func day() {
+    return datetime_day()
+}
+
+class DateInfo {
+    func init() {
+        this.y = year()
+        this.m = month()
+        this.d = day()
+        this.iso = now_iso()
+    }
+}
+
+func today() {
+    return DateInfo()
+}
+
+
+
+// Extensiones utilitarias
+func date_info() {
+    return DateInfo()
+}
+
+func ymd() {
+    return date_info()
+}
+
+func iso_now() {
+    return now_iso()
+}

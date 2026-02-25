@@ -1,3 +1,5 @@
+@package "stdlib.sqlite3"
+
 import _native
 
 class SQLiteConnection {
@@ -33,3 +35,16 @@ func connect(path) {
 }
 
 
+
+// Extensiones utilitarias
+func memory() {
+    return connect(":memory:")
+}
+
+func open_memory() {
+    return memory()
+}
+
+func status(path) {
+    return connect(path).status()
+}

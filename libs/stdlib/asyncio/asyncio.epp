@@ -18,3 +18,16 @@ func run(task_name) {
 }
 
 
+
+// Extensiones utilitarias
+func sleep_seconds(seconds) {
+    return sleep(seconds)
+}
+
+func sleep_minutes(minutes) {
+    return sleep(minutes * 60)
+}
+
+func wait(seconds) {
+    return sleep(seconds)
+}

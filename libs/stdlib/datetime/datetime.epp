@@ -34,3 +34,16 @@ func today() {
 }
 
 
+
+// Extensiones utilitarias
+func date_info() {
+    return DateInfo()
+}
+
+func ymd() {
+    return date_info()
+}
+
+func iso_now() {
+    return now_iso()
+}

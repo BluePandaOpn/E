@@ -1,0 +1,48 @@
+import _native
+
+class SQLiteConnection {
+    func init(path) {
+        this.path = path
+        this.open_result = sqlite3_open()
+    }
+
+    func ok() {
+        // Runtime actual devuelve un mensaje, no una conexion real.
+        return false
+    }
+
+    func status() {
+        return this.open_result
+    }
+
+    func execute(sql) {
+        return "sqlite3.execute no disponible aun. SQL: " + sql
+    }
+
+    func close() {
+        return true
+    }
+}
+
+func open() {
+    return SQLiteConnection(":memory:")
+}
+
+func connect(path) {
+    return SQLiteConnection(path)
+}
+
+
+
+// Extensiones utilitarias
+func memory() {
+    return connect(":memory:")
+}
+
+func open_memory() {
+    return memory()
+}
+
+func status(path) {
+    return connect(path).status()
+}

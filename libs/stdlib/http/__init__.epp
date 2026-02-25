@@ -1,3 +1,5 @@
+@package "stdlib.http"
+
 import _native
 
 class HTTPRequest {
@@ -146,4 +148,17 @@ func serve_forever(port, body) {
 
 func serve_forever_status(port, body, status) {
     return http_server_loop(port, body, 0, status)
+}
+
+// Extensiones utilitarias
+func text_ok(client_id, body) {
+    return response(client_id).send(body)
+}
+
+func json_ok(client_id, body) {
+    return response(client_id).json(body)
+}
+
+func html_ok(client_id, body) {
+    return response(client_id).html(body)
 }

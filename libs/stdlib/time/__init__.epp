@@ -1,3 +1,5 @@
+@package "stdlib.time"
+
 import _native
 
 func time() {

@@ -1,3 +1,5 @@
+@package "stdlib.random"
+
 import _native
 
 func seed(n) {
@@ -21,3 +23,16 @@ func uniform(a, b) {
 }
 
 
+
+// Extensiones utilitarias
+func randbool() {
+    return randint(0, 1) == 1
+}
+
+func chance(percent) {
+    return randint(1, 100) <= percent
+}
+
+func rand01() {
+    return random()
+}

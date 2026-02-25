@@ -1,0 +1,30 @@
+@package "stdlib.csv"
+
+import _native
+
+func row2(a, b) {
+    return csv_join2(a, b)
+}
+
+func join2(a, b) {
+    return row2(a, b)
+}
+
+func header2(a, b) {
+    return row2(a, b)
+}
+
+
+
+// Extensiones utilitarias
+func row3(a, b, c) {
+    return row2(a, b) + "," + c
+}
+
+func row4(a, b, c, d) {
+    return row3(a, b, c) + "," + d
+}
+
+func header3(a, b, c) {
+    return row3(a, b, c)
+}

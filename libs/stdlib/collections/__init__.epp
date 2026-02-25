@@ -1,3 +1,5 @@
+@package "stdlib.collections"
+
 // Base de collections en runtime actual.
 // E++ todavia no tiene listas/diccionarios nativos como Python,
 // pero este modulo ofrece estructuras simples y consistentes.
@@ -40,3 +42,16 @@ func named(name, value) {
 }
 
 
+
+// Extensiones utilitarias
+func tuple2(a, b) {
+    return pair(a, b)
+}
+
+func flipped(a, b) {
+    return pair(b, a)
+}
+
+func named_empty(name) {
+    return NamedValue(name, "")
+}

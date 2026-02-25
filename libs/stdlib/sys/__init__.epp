@@ -1,3 +1,5 @@
+@package "stdlib.sys"
+
 import _native
 
 func platform() {
@@ -17,3 +19,16 @@ func info() {
 }
 
 
+
+// Extensiones utilitarias
+func is_windows() {
+    return platform() == "windows"
+}
+
+func is_linux() {
+    return platform() == "linux"
+}
+
+func summary() {
+    return info()
+}

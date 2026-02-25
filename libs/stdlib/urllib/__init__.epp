@@ -1,0 +1,31 @@
+@package "stdlib.urllib"
+
+import _native
+
+func quote(text) {
+    return urllib_quote(text)
+}
+
+func quote_plus(text) {
+    // Placeholder: en runtime actual se comporta igual que quote.
+    return quote(text)
+}
+
+func encode_component(text) {
+    return quote(text)
+}
+
+
+
+// Extensiones utilitarias
+func encode(text) {
+    return quote(text)
+}
+
+func encode_path(text) {
+    return quote(text)
+}
+
+func encode_query_param(text) {
+    return quote_plus(text)
+}

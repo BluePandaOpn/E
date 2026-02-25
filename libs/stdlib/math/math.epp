@@ -36,3 +36,16 @@ func clamp(x, low, high) {
 }
 
 
+
+// Extensiones utilitarias
+func round(x) {
+    return floor(x + 0.5)
+}
+
+func lerp(a, b, t) {
+    return a + ((b - a) * t)
+}
+
+func between(x, low, high) {
+    return x >= low and x <= high
+}

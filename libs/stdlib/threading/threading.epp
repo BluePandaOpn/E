@@ -14,3 +14,14 @@ func active_count() {
 }
 
 
+
+// Extensiones utilitarias
+func can_parallel() {
+    return cpu_count() > 1
+}
+
+func workers_hint() {
+    var n = cpu_count()
+    if n < 1 { return 1 }
+    return n
+}

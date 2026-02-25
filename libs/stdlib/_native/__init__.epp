@@ -1,0 +1,12 @@
+@package "stdlib._native"
+
+// Runtime builtin mode: no requiere loadlib en este entorno.
+
+// Extensiones utilitarias
+func builtin_mode() {
+    return true
+}
+
+func runtime_name() {
+    return "native_std_cpp"
+}

@@ -37,3 +37,16 @@ func unlink(path) {
 }
 
 
+
+// Extensiones utilitarias
+func join2(a, b) {
+    return a + "/" + b
+}
+
+func join3(a, b, c) {
+    return join2(join2(a, b), c)
+}
+
+func pwd() {
+    return getcwd()
+}

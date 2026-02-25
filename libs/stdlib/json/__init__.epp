@@ -1,3 +1,5 @@
+@package "stdlib.json"
+
 import _native
 
 func dumps_text(text) {
@@ -25,3 +27,16 @@ func is_valid_number(text) {
 }
 
 
+
+// Extensiones utilitarias
+func stringify(text) {
+    return dumps(text)
+}
+
+func parse_num(text) {
+    return loads_number(text)
+}
+
+func valid_number(text) {
+    return is_valid_number(text)
+}
