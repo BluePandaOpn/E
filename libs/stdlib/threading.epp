@@ -1,0 +1,16 @@
+import _native
+
+func cpu_count() {
+    return threading_cpu_count()
+}
+
+func hardware_concurrency() {
+    return cpu_count()
+}
+
+func active_count() {
+    // Runtime actual no maneja hilos E++ reales todavia.
+    return 1
+}
+
+

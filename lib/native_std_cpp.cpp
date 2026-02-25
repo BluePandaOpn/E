@@ -1,0 +1,887 @@
+#include "epp_native.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstring>
+#include <filesystem>
+#include <iomanip>
+#include <mutex>
+#include <random>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+namespace {
+thread_local std::string g_string_result;
+std::mt19937_64 g_rng{std::random_device{}()};
+
+EppNativeValue makeNull() {
+    EppNativeValue v{};
+    v.type = EPP_NATIVE_NULL;
+    return v;
+}
+
+EppNativeValue makeNumber(double n) {
+    EppNativeValue v{};
+    v.type = EPP_NATIVE_NUMBER;
+    v.number_value = n;
+    return v;
+}
+
+EppNativeValue makeBool(bool b) {
+    EppNativeValue v{};
+    v.type = EPP_NATIVE_BOOL;
+    v.bool_value = b ? 1 : 0;
+    return v;
+}
+
+EppNativeValue makeString(const std::string& s) {
+    g_string_result = s;
+    EppNativeValue v{};
+    v.type = EPP_NATIVE_STRING;
+    v.string_value = g_string_result.c_str();
+    return v;
+}
+
+bool isNumber(const EppNativeValue& v) { return v.type == EPP_NATIVE_NUMBER; }
+bool isString(const EppNativeValue& v) { return v.type == EPP_NATIVE_STRING && v.string_value != nullptr; }
+
+int asInt(const EppNativeValue& v, int fallback) {
+    if (v.type == EPP_NATIVE_NUMBER) return static_cast<int>(v.number_value);
+    return fallback;
+}
+
+std::string asString(const EppNativeValue& v, const std::string& fallback) {
+    if (v.type == EPP_NATIVE_STRING && v.string_value) return std::string(v.string_value);
+    return fallback;
+}
+
+#ifdef _WIN32
+using SocketHandle = SOCKET;
+constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
+#else
+using SocketHandle = int;
+constexpr SocketHandle kInvalidSocket = -1;
+#endif
+
+void closeSocket(SocketHandle s) {
+#ifdef _WIN32
+    if (s != INVALID_SOCKET) closesocket(s);
+#else
+    if (s >= 0) close(s);
+#endif
+}
+
+bool socketStartup() {
+#ifdef _WIN32
+    static bool initialized = false;
+    static bool ok = false;
+    if (!initialized) {
+        WSADATA wsa{};
+        ok = (WSAStartup(MAKEWORD(2, 2), &wsa) == 0);
+        initialized = true;
+    }
+    return ok;
+#else
+    return true;
+#endif
+}
+
+struct HttpRequestParts {
+    std::string requestLine;
+    std::string method;
+    std::string path;
+    std::string version;
+    std::string body;
+    std::unordered_map<std::string, std::string> headers;
+};
+
+struct HttpServerCtx {
+    SocketHandle socket = kInvalidSocket;
+    std::string host;
+    int port = 0;
+};
+
+struct HttpClientCtx {
+    SocketHandle socket = kInvalidSocket;
+    HttpRequestParts req;
+};
+
+std::mutex g_httpMutex;
+int g_nextHttpServerId = 1;
+int g_nextHttpClientId = 1;
+std::unordered_map<int, HttpServerCtx> g_httpServers;
+std::unordered_map<int, HttpClientCtx> g_httpClients;
+
+std::string toLowerCopy(std::string s) {
+    for (char& c : s) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    return s;
+}
+
+std::string trimCopy(const std::string& s) {
+    size_t b = 0;
+    while (b < s.size() && (s[b] == ' ' || s[b] == '\t' || s[b] == '\r' || s[b] == '\n')) ++b;
+    size_t e = s.size();
+    while (e > b && (s[e - 1] == ' ' || s[e - 1] == '\t' || s[e - 1] == '\r' || s[e - 1] == '\n')) --e;
+    return s.substr(b, e - b);
+}
+
+std::string statusTextFromCode(int code) {
+    switch (code) {
+        case 200: return "OK";
+        case 201: return "Created";
+        case 204: return "No Content";
+        case 301: return "Moved Permanently";
+        case 302: return "Found";
+        case 400: return "Bad Request";
+        case 401: return "Unauthorized";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 405: return "Method Not Allowed";
+        case 409: return "Conflict";
+        case 422: return "Unprocessable Entity";
+        case 429: return "Too Many Requests";
+        case 500: return "Internal Server Error";
+        case 502: return "Bad Gateway";
+        case 503: return "Service Unavailable";
+        default: return "OK";
+    }
+}
+
+std::string buildHttpResponse(int statusCode,
+                              const std::string& statusText,
+                              const std::string& contentType,
+                              const std::string& body) {
+    std::ostringstream out;
+    out << "HTTP/1.1 " << statusCode << " " << statusText << "\r\n";
+    out << "Content-Type: " << contentType << "\r\n";
+    out << "Connection: close\r\n";
+    out << "Content-Length: " << body.size() << "\r\n";
+    out << "\r\n";
+    out << body;
+    return out.str();
+}
+
+bool sendAll(SocketHandle socket, const std::string& payload) {
+    const char* data = payload.c_str();
+    int total = static_cast<int>(payload.size());
+    int sent = 0;
+    while (sent < total) {
+        const int n = send(socket, data + sent, total - sent, 0);
+        if (n <= 0) return false;
+        sent += n;
+    }
+    return true;
+}
+
+HttpRequestParts parseHttpRequest(const std::string& raw) {
+    HttpRequestParts out;
+    const size_t lineEnd = raw.find("\r\n");
+    if (lineEnd == std::string::npos) return out;
+    out.requestLine = raw.substr(0, lineEnd);
+
+    {
+        std::istringstream line(out.requestLine);
+        line >> out.method >> out.path >> out.version;
+    }
+
+    size_t headerEnd = raw.find("\r\n\r\n");
+    size_t headerStart = lineEnd + 2;
+    if (headerEnd == std::string::npos) {
+        headerEnd = raw.size();
+        headerStart = lineEnd + 2;
+    }
+
+    size_t cur = headerStart;
+    while (cur < headerEnd) {
+        size_t next = raw.find("\r\n", cur);
+        if (next == std::string::npos || next > headerEnd) break;
+        const std::string line = raw.substr(cur, next - cur);
+        const size_t sep = line.find(':');
+        if (sep != std::string::npos) {
+            std::string key = trimCopy(line.substr(0, sep));
+            std::string value = trimCopy(line.substr(sep + 1));
+            if (!key.empty()) out.headers[toLowerCopy(key)] = value;
+        }
+        cur = next + 2;
+    }
+
+    if (headerEnd + 4 <= raw.size()) {
+        out.body = raw.substr(headerEnd + 4);
+    }
+    return out;
+}
+
+bool bindAndListen(SocketHandle& outServer, const std::string& host, int port) {
+    if (!socketStartup()) return false;
+    outServer = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (outServer == kInvalidSocket) return false;
+
+    int yes = 1;
+#ifdef _WIN32
+    setsockopt(outServer, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+#else
+    setsockopt(outServer, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+#endif
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<unsigned short>(port));
+
+    if (host.empty() || host == "0.0.0.0" || host == "*") {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        const int ok = inet_pton(AF_INET, host.c_str(), &addr.sin_addr);
+        if (ok != 1) {
+            closeSocket(outServer);
+            outServer = kInvalidSocket;
+            return false;
+        }
+    }
+
+    if (bind(outServer, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        closeSocket(outServer);
+        outServer = kInvalidSocket;
+        return false;
+    }
+    if (listen(outServer, 64) < 0) {
+        closeSocket(outServer);
+        outServer = kInvalidSocket;
+        return false;
+    }
+    return true;
+}
+
+int httpServerListen(const std::string& host, int port) {
+    if (port <= 0 || port > 65535) return -1;
+    SocketHandle s = kInvalidSocket;
+    if (!bindAndListen(s, host, port)) return -1;
+
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    const int id = g_nextHttpServerId++;
+    g_httpServers[id] = HttpServerCtx{s, host, port};
+    return id;
+}
+
+int httpServerAccept(int serverId) {
+    SocketHandle server = kInvalidSocket;
+    {
+        std::lock_guard<std::mutex> lock(g_httpMutex);
+        auto it = g_httpServers.find(serverId);
+        if (it == g_httpServers.end()) return -1;
+        server = it->second.socket;
+    }
+
+    sockaddr_in clientAddr{};
+#ifdef _WIN32
+    int clientLen = sizeof(clientAddr);
+#else
+    socklen_t clientLen = static_cast<socklen_t>(sizeof(clientAddr));
+#endif
+    SocketHandle client = accept(server, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
+    if (client == kInvalidSocket) return -1;
+
+    std::string raw;
+    std::vector<char> buffer(8192);
+    const int received = recv(client, buffer.data(), static_cast<int>(buffer.size() - 1), 0);
+    if (received > 0) {
+        buffer[received] = '\0';
+        raw.assign(buffer.data(), static_cast<size_t>(received));
+    }
+    HttpRequestParts req = parseHttpRequest(raw);
+    if (req.requestLine.empty()) req.requestLine = "(sin request-line)";
+
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    const int clientId = g_nextHttpClientId++;
+    g_httpClients[clientId] = HttpClientCtx{client, std::move(req)};
+    return clientId;
+}
+
+void httpClientClose(int clientId) {
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return;
+    closeSocket(it->second.socket);
+    g_httpClients.erase(it);
+}
+
+bool httpResponseSend(int clientId,
+                      int statusCode,
+                      const std::string& statusText,
+                      const std::string& contentType,
+                      const std::string& body) {
+    SocketHandle socket = kInvalidSocket;
+    {
+        std::lock_guard<std::mutex> lock(g_httpMutex);
+        auto it = g_httpClients.find(clientId);
+        if (it == g_httpClients.end()) return false;
+        socket = it->second.socket;
+    }
+
+    const std::string response = buildHttpResponse(statusCode, statusText, contentType, body);
+    const bool ok = sendAll(socket, response);
+    httpClientClose(clientId);
+    return ok;
+}
+
+bool httpServerClose(int serverId) {
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpServers.find(serverId);
+    if (it == g_httpServers.end()) return false;
+    closeSocket(it->second.socket);
+    g_httpServers.erase(it);
+    return true;
+}
+
+std::string nowIsoLocal() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t tt = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+    std::ostringstream out;
+    out << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    return out.str();
+}
+
+std::string jsonQuote(const std::string& in) {
+    std::ostringstream out;
+    out << '"';
+    for (char c : in) {
+        switch (c) {
+            case '"': out << "\\\""; break;
+            case '\\': out << "\\\\"; break;
+            case '\n': out << "\\n"; break;
+            case '\r': out << "\\r"; break;
+            case '\t': out << "\\t"; break;
+            default: out << c; break;
+        }
+    }
+    out << '"';
+    return out.str();
+}
+
+std::string urlEncode(const std::string& in) {
+    std::ostringstream out;
+    out << std::hex << std::uppercase;
+    for (unsigned char c : in) {
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' ||
+            c == '.' || c == '~') {
+            out << static_cast<char>(c);
+        } else {
+            out << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+        }
+    }
+    return out.str();
+}
+
+EppNativeValue fn_time_time(const EppNativeValue*, int) {
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    return makeNumber(std::chrono::duration<double>(now).count());
+}
+
+EppNativeValue fn_time_monotonic(const EppNativeValue*, int) {
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return makeNumber(std::chrono::duration<double>(now).count());
+}
+
+EppNativeValue fn_time_sleep(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    const double seconds = std::max(0.0, args[0].number_value);
+    std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
+    return makeNull();
+}
+
+EppNativeValue fn_datetime_now_iso(const EppNativeValue*, int) { return makeString(nowIsoLocal()); }
+
+EppNativeValue fn_datetime_year(const EppNativeValue*, int) {
+    std::time_t tt = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+    return makeNumber(static_cast<double>(tm.tm_year + 1900));
+}
+
+EppNativeValue fn_datetime_month(const EppNativeValue*, int) {
+    std::time_t tt = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+    return makeNumber(static_cast<double>(tm.tm_mon + 1));
+}
+
+EppNativeValue fn_datetime_day(const EppNativeValue*, int) {
+    std::time_t tt = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &tt);
+#else
+    localtime_r(&tt, &tm);
+#endif
+    return makeNumber(static_cast<double>(tm.tm_mday));
+}
+
+EppNativeValue fn_math_pi(const EppNativeValue*, int) { return makeNumber(3.14159265358979323846); }
+EppNativeValue fn_math_e(const EppNativeValue*, int) { return makeNumber(2.71828182845904523536); }
+
+EppNativeValue fn_math_sqrt(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::sqrt(args[0].number_value));
+}
+
+EppNativeValue fn_math_pow(const EppNativeValue* args, int argc) {
+    if (argc < 2 || !isNumber(args[0]) || !isNumber(args[1])) return makeNull();
+    return makeNumber(std::pow(args[0].number_value, args[1].number_value));
+}
+
+EppNativeValue fn_math_floor(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::floor(args[0].number_value));
+}
+
+EppNativeValue fn_math_ceil(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::ceil(args[0].number_value));
+}
+
+EppNativeValue fn_math_sin(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::sin(args[0].number_value));
+}
+
+EppNativeValue fn_math_cos(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::cos(args[0].number_value));
+}
+
+EppNativeValue fn_math_tan(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::tan(args[0].number_value));
+}
+
+EppNativeValue fn_math_log(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::log(args[0].number_value));
+}
+
+EppNativeValue fn_math_exp(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNull();
+    return makeNumber(std::exp(args[0].number_value));
+}
+
+EppNativeValue fn_random_seed(const EppNativeValue* args, int argc) {
+    if (argc >= 1 && isNumber(args[0])) {
+        g_rng.seed(static_cast<std::uint64_t>(args[0].number_value));
+    } else {
+        g_rng.seed(std::random_device{}());
+    }
+    return makeNull();
+}
+
+EppNativeValue fn_random_random(const EppNativeValue*, int) {
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    return makeNumber(dist(g_rng));
+}
+
+EppNativeValue fn_random_randint(const EppNativeValue* args, int argc) {
+    if (argc < 2 || !isNumber(args[0]) || !isNumber(args[1])) return makeNull();
+    long long a = static_cast<long long>(args[0].number_value);
+    long long b = static_cast<long long>(args[1].number_value);
+    if (a > b) std::swap(a, b);
+    std::uniform_int_distribution<long long> dist(a, b);
+    return makeNumber(static_cast<double>(dist(g_rng)));
+}
+
+EppNativeValue fn_random_uniform(const EppNativeValue* args, int argc) {
+    if (argc < 2 || !isNumber(args[0]) || !isNumber(args[1])) return makeNull();
+    double a = args[0].number_value;
+    double b = args[1].number_value;
+    if (a > b) std::swap(a, b);
+    std::uniform_real_distribution<double> dist(a, b);
+    return makeNumber(dist(g_rng));
+}
+
+EppNativeValue fn_sys_platform(const EppNativeValue*, int) {
+#ifdef _WIN32
+    return makeString("windows");
+#elif __APPLE__
+    return makeString("macos");
+#elif __linux__
+    return makeString("linux");
+#else
+    return makeString("unknown");
+#endif
+}
+
+EppNativeValue fn_sys_version(const EppNativeValue*, int) { return makeString("epp-std-0.2.3"); }
+EppNativeValue fn_sys_executable(const EppNativeValue*, int) { return makeString("epp"); }
+
+EppNativeValue fn_os_getcwd(const EppNativeValue*, int) {
+    return makeString(std::filesystem::current_path().string());
+}
+
+EppNativeValue fn_os_exists(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    return makeBool(std::filesystem::exists(std::filesystem::path(args[0].string_value)));
+}
+
+EppNativeValue fn_os_is_file(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    return makeBool(std::filesystem::is_regular_file(std::filesystem::path(args[0].string_value)));
+}
+
+EppNativeValue fn_os_is_dir(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    return makeBool(std::filesystem::is_directory(std::filesystem::path(args[0].string_value)));
+}
+
+EppNativeValue fn_os_mkdir(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    std::error_code ec;
+    bool ok = std::filesystem::create_directories(std::filesystem::path(args[0].string_value), ec);
+    return makeBool(ok && !ec);
+}
+
+EppNativeValue fn_os_remove(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    std::error_code ec;
+    bool ok = std::filesystem::remove(std::filesystem::path(args[0].string_value), ec);
+    return makeBool(ok && !ec);
+}
+
+EppNativeValue fn_json_quote(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeString("\"\"");
+    return makeString(jsonQuote(args[0].string_value));
+}
+
+EppNativeValue fn_json_is_valid_number(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeBool(false);
+    try {
+        std::string s = args[0].string_value;
+        size_t idx = 0;
+        (void)std::stod(s, &idx);
+        return makeBool(idx == s.size());
+    } catch (...) {
+        return makeBool(false);
+    }
+}
+
+EppNativeValue fn_json_parse_number(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeNull();
+    try {
+        return makeNumber(std::stod(std::string(args[0].string_value)));
+    } catch (...) {
+        return makeNull();
+    }
+}
+
+EppNativeValue fn_csv_join2(const EppNativeValue* args, int argc) {
+    if (argc < 2 || !isString(args[0]) || !isString(args[1])) return makeString("");
+    return makeString(jsonQuote(args[0].string_value) + "," + jsonQuote(args[1].string_value));
+}
+
+EppNativeValue fn_urllib_quote(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isString(args[0])) return makeString("");
+    return makeString(urlEncode(args[0].string_value));
+}
+
+EppNativeValue fn_http_get(const EppNativeValue*, int) {
+    return makeString("http.get no disponible en runtime actual");
+}
+
+EppNativeValue fn_http_server_listen(const EppNativeValue* args, int argc) {
+    const std::string host = (argc >= 1) ? asString(args[0], "0.0.0.0") : "0.0.0.0";
+    const int port = (argc >= 2) ? asInt(args[1], 8080) : 8080;
+    return makeNumber(static_cast<double>(httpServerListen(host, port)));
+}
+
+EppNativeValue fn_http_server_accept(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeNumber(-1);
+    const int serverId = asInt(args[0], -1);
+    return makeNumber(static_cast<double>(httpServerAccept(serverId)));
+}
+
+EppNativeValue fn_http_server_close(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeBool(false);
+    const int serverId = asInt(args[0], -1);
+    return makeBool(httpServerClose(serverId));
+}
+
+EppNativeValue fn_http_client_close(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeBool(false);
+    const int clientId = asInt(args[0], -1);
+    httpClientClose(clientId);
+    return makeBool(true);
+}
+
+EppNativeValue fn_http_request_line(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    return makeString(it->second.req.requestLine);
+}
+
+EppNativeValue fn_http_request_method(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    return makeString(it->second.req.method);
+}
+
+EppNativeValue fn_http_request_path(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    return makeString(it->second.req.path);
+}
+
+EppNativeValue fn_http_request_version(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    return makeString(it->second.req.version);
+}
+
+EppNativeValue fn_http_request_body(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    return makeString(it->second.req.body);
+}
+
+EppNativeValue fn_http_request_header(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeString("");
+    const int clientId = asInt(args[0], -1);
+    const std::string key = toLowerCopy(asString(args[1], ""));
+    std::lock_guard<std::mutex> lock(g_httpMutex);
+    auto it = g_httpClients.find(clientId);
+    if (it == g_httpClients.end()) return makeString("");
+    auto h = it->second.req.headers.find(key);
+    if (h == it->second.req.headers.end()) return makeString("");
+    return makeString(h->second);
+}
+
+EppNativeValue fn_http_response_send(const EppNativeValue* args, int argc) {
+    if (argc < 5) return makeBool(false);
+    const int clientId = asInt(args[0], -1);
+    const int statusCode = asInt(args[1], 200);
+    std::string statusText = asString(args[2], "");
+    const std::string contentType = asString(args[3], "text/plain; charset=utf-8");
+    const std::string body = asString(args[4], "");
+    if (statusText.empty()) statusText = statusTextFromCode(statusCode);
+    return makeBool(httpResponseSend(clientId, statusCode, statusText, contentType, body));
+}
+
+EppNativeValue fn_http_server_once(const EppNativeValue* args, int argc) {
+    const int port = (argc >= 1) ? asInt(args[0], 8080) : 8080;
+    const std::string body = (argc >= 2) ? asString(args[1], "Hola desde E++") : "Hola desde E++";
+    const std::string status = (argc >= 3) ? asString(args[2], "200 OK") : "200 OK";
+    if (port <= 0 || port > 65535) return makeString("ERROR: puerto invalido");
+    const int serverId = httpServerListen("0.0.0.0", port);
+    if (serverId <= 0) return makeString("ERROR: no se pudo abrir el servidor");
+    const int clientId = httpServerAccept(serverId);
+    if (clientId <= 0) {
+        httpServerClose(serverId);
+        return makeString("ERROR: no se pudo aceptar cliente");
+    }
+
+    std::string requestLine = "(sin request-line)";
+    {
+        std::lock_guard<std::mutex> lock(g_httpMutex);
+        auto it = g_httpClients.find(clientId);
+        if (it != g_httpClients.end() && !it->second.req.requestLine.empty()) requestLine = it->second.req.requestLine;
+    }
+
+    int statusCode = 200;
+    std::string statusText = status;
+    {
+        std::istringstream iss(status);
+        if (!(iss >> statusCode)) statusCode = 200;
+        std::string rest;
+        std::getline(iss, rest);
+        rest = trimCopy(rest);
+        statusText = rest.empty() ? statusTextFromCode(statusCode) : rest;
+    }
+    (void)httpResponseSend(clientId, statusCode, statusText, "text/plain; charset=utf-8", body);
+    httpServerClose(serverId);
+    return makeString(requestLine);
+}
+
+EppNativeValue fn_http_server_loop(const EppNativeValue* args, int argc) {
+    const int port = (argc >= 1) ? asInt(args[0], 8080) : 8080;
+    const std::string body = (argc >= 2) ? asString(args[1], "Hola desde E++") : "Hola desde E++";
+    const int maxRequests = (argc >= 3) ? asInt(args[2], 0) : 0;
+    const std::string status = (argc >= 4) ? asString(args[3], "200 OK") : "200 OK";
+    if (port <= 0 || port > 65535) return makeNumber(-1);
+    const int serverId = httpServerListen("0.0.0.0", port);
+    if (serverId <= 0) return makeNumber(-1);
+
+    int statusCode = 200;
+    std::string statusText = status;
+    {
+        std::istringstream iss(status);
+        if (!(iss >> statusCode)) statusCode = 200;
+        std::string rest;
+        std::getline(iss, rest);
+        rest = trimCopy(rest);
+        statusText = rest.empty() ? statusTextFromCode(statusCode) : rest;
+    }
+
+    int handled = 0;
+    while (maxRequests <= 0 || handled < maxRequests) {
+        const int clientId = httpServerAccept(serverId);
+        if (clientId <= 0) break;
+        if (!httpResponseSend(clientId, statusCode, statusText, "text/plain; charset=utf-8", body)) break;
+        ++handled;
+    }
+    httpServerClose(serverId);
+    return makeNumber(static_cast<double>(handled));
+}
+
+EppNativeValue fn_sqlite3_open(const EppNativeValue*, int) {
+    return makeString("sqlite3 no disponible en runtime actual");
+}
+
+EppNativeValue fn_threading_cpu_count(const EppNativeValue*, int) {
+    return makeNumber(static_cast<double>(std::thread::hardware_concurrency()));
+}
+
+EppNativeValue fn_asyncio_sleep(const EppNativeValue* args, int argc) { return fn_time_sleep(args, argc); }
+
+EppNativeValue fn_tkinter_available(const EppNativeValue*, int) { return makeBool(false); }
+} // namespace
+
+extern "C" {
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
+int epp_register_v2(EppNativeEntryV2* out_entries, int max_entries) {
+    if (!out_entries || max_entries <= 0) return 0;
+
+    EppNativeEntryV2 entries[] = {
+        {"time_time", 0, fn_time_time},
+        {"time_monotonic", 0, fn_time_monotonic},
+        {"time_sleep", 1, fn_time_sleep},
+        {"datetime_now_iso", 0, fn_datetime_now_iso},
+        {"datetime_year", 0, fn_datetime_year},
+        {"datetime_month", 0, fn_datetime_month},
+        {"datetime_day", 0, fn_datetime_day},
+        {"math_pi", 0, fn_math_pi},
+        {"math_e", 0, fn_math_e},
+        {"math_sqrt", 1, fn_math_sqrt},
+        {"math_pow", 2, fn_math_pow},
+        {"math_floor", 1, fn_math_floor},
+        {"math_ceil", 1, fn_math_ceil},
+        {"math_sin", 1, fn_math_sin},
+        {"math_cos", 1, fn_math_cos},
+        {"math_tan", 1, fn_math_tan},
+        {"math_log", 1, fn_math_log},
+        {"math_exp", 1, fn_math_exp},
+        {"random_seed", -1, fn_random_seed},
+        {"random_random", 0, fn_random_random},
+        {"random_randint", 2, fn_random_randint},
+        {"random_uniform", 2, fn_random_uniform},
+        {"sys_platform", 0, fn_sys_platform},
+        {"sys_version", 0, fn_sys_version},
+        {"sys_executable", 0, fn_sys_executable},
+        {"os_getcwd", 0, fn_os_getcwd},
+        {"os_exists", 1, fn_os_exists},
+        {"os_is_file", 1, fn_os_is_file},
+        {"os_is_dir", 1, fn_os_is_dir},
+        {"os_mkdir", 1, fn_os_mkdir},
+        {"os_remove", 1, fn_os_remove},
+        {"json_quote", 1, fn_json_quote},
+        {"json_is_valid_number", 1, fn_json_is_valid_number},
+        {"json_parse_number", 1, fn_json_parse_number},
+        {"csv_join2", 2, fn_csv_join2},
+        {"urllib_quote", 1, fn_urllib_quote},
+        {"http_get", 0, fn_http_get},
+        {"http_server_listen", 2, fn_http_server_listen},
+        {"http_server_accept", 1, fn_http_server_accept},
+        {"http_server_close", 1, fn_http_server_close},
+        {"http_client_close", 1, fn_http_client_close},
+        {"http_request_line", 1, fn_http_request_line},
+        {"http_request_method", 1, fn_http_request_method},
+        {"http_request_path", 1, fn_http_request_path},
+        {"http_request_version", 1, fn_http_request_version},
+        {"http_request_body", 1, fn_http_request_body},
+        {"http_request_header", 2, fn_http_request_header},
+        {"http_response_send", 5, fn_http_response_send},
+        {"http_server_once", -1, fn_http_server_once},
+        {"http_server_loop", -1, fn_http_server_loop},
+        {"sqlite3_open", 0, fn_sqlite3_open},
+        {"threading_cpu_count", 0, fn_threading_cpu_count},
+        {"asyncio_sleep", 1, fn_asyncio_sleep},
+        {"tkinter_available", 0, fn_tkinter_available},
+    };
+
+    const int total = static_cast<int>(sizeof(entries) / sizeof(entries[0]));
+    const int n = std::min(total, max_entries);
+    for (int i = 0; i < n; ++i) out_entries[i] = entries[i];
+    return n;
+}
+
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
+int epp_register(EppNativeEntry* out_entries, int max_entries) {
+    if (!out_entries || max_entries < 2) return 0;
+
+    auto legacy_sqrt = [](const double* args, int argc) -> double {
+        if (argc < 1) return 0.0;
+        return std::sqrt(args[0]);
+    };
+
+    auto legacy_pow = [](const double* args, int argc) -> double {
+        if (argc < 2) return 0.0;
+        return std::pow(args[0], args[1]);
+    };
+
+    out_entries[0].name = "math_sqrt";
+    out_entries[0].arity = 1;
+    out_entries[0].fn = legacy_sqrt;
+
+    out_entries[1].name = "math_pow";
+    out_entries[1].arity = 2;
+    out_entries[1].fn = legacy_pow;
+    return 2;
+}
+}

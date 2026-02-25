@@ -1,0 +1,27 @@
+import _native
+
+func dumps_text(text) {
+    return json_quote(text)
+}
+
+func quote(text) {
+    return dumps_text(text)
+}
+
+func dumps(text) {
+    return dumps_text(text)
+}
+
+func loads_number(text) {
+    return json_parse_number(text)
+}
+
+func parse_number(text) {
+    return loads_number(text)
+}
+
+func is_valid_number(text) {
+    return json_is_valid_number(text)
+}
+
+

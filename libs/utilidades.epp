@@ -1,0 +1,19 @@
+// Libreria E++ importable
+
+func cuadrado(x) {
+    return x * x
+}
+
+func cubo(x) {
+    return x * x * x
+}
+
+class Texto {
+    func init(prefijo) {
+        this.prefijo = prefijo
+    }
+
+    func decorar(msg) {
+        return this.prefijo + msg + this.prefijo
+    }
+}

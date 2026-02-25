@@ -1,0 +1,19 @@
+import _native
+
+func platform() {
+    return sys_platform()
+}
+
+func version() {
+    return sys_version()
+}
+
+func executable() {
+    return sys_executable()
+}
+
+func info() {
+    return "platform=" + platform() + ", version=" + version() + ", exe=" + executable()
+}
+
+

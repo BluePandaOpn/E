@@ -1,0 +1,23 @@
+import _native
+
+func time() {
+    return time_time()
+}
+
+func now() {
+    return time()
+}
+
+func monotonic() {
+    return time_monotonic()
+}
+
+func sleep(seconds) {
+    return time_sleep(seconds)
+}
+
+func sleep_ms(milliseconds) {
+    return sleep(milliseconds / 1000)
+}
+
+

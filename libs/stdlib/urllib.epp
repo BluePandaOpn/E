@@ -1,0 +1,16 @@
+import _native
+
+func quote(text) {
+    return urllib_quote(text)
+}
+
+func quote_plus(text) {
+    // Placeholder: en runtime actual se comporta igual que quote.
+    return quote(text)
+}
+
+func encode_component(text) {
+    return quote(text)
+}
+
+

@@ -1,0 +1,15 @@
+import _native
+
+func row2(a, b) {
+    return csv_join2(a, b)
+}
+
+func join2(a, b) {
+    return row2(a, b)
+}
+
+func header2(a, b) {
+    return row2(a, b)
+}
+
+
