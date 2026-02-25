@@ -2,6 +2,20 @@
 
 Este directorio contiene las librerias estandar del lenguaje E++.
 
+## Estado actual (v2)
+
+- Arquitectura modular estandarizada:
+  - `__init__.epp` como fachada publica.
+  - `*.epp` como implementacion interna.
+- API ampliada en modulos core: `math`, `random`, `time`, `datetime`, `json`, `os`, `csv`, `urllib`, `http`, `collections`.
+- Compatibilidad mantenida con aliases existentes para evitar romper codigo previo.
+- Metadatos uniformes por modulo:
+  - `module_name()`
+  - `module_version()`
+  - `native_runtime()`
+  - `native_builtin_mode()`
+- Modulos con soporte parcial en runtime actual (`asyncio`, `threading`, `sqlite3`) exponen placeholders profesionales y funciones de estado para migracion progresiva.
+
 ## Integracion C++
 
 - El backend nativo se expone por `_native` (`stdlib._native`).

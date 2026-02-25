@@ -8,6 +8,10 @@ func now() {
     return now_iso()
 }
 
+func today_iso() {
+    return now_iso()
+}
+
 func year() {
     return datetime_year()
 }
@@ -27,13 +31,28 @@ class DateInfo {
         this.d = day()
         this.iso = now_iso()
     }
+
+    func year() { return this.y }
+    func month() { return this.m }
+    func day() { return this.d }
+    func iso_text() { return this.iso }
+}
+
+class DateParts {
+    func init(y, m, d) {
+        this.y = int(y)
+        this.m = int(m)
+        this.d = int(d)
+    }
 }
 
 func today() {
     return DateInfo()
 }
 
-
+func from_ymd(y, m, d) {
+    return DateParts(y, m, d)
+}
 
 // Extensiones utilitarias
 func date_info() {
@@ -46,4 +65,32 @@ func ymd() {
 
 func iso_now() {
     return now_iso()
+}
+
+func current_year() {
+    return year()
+}
+
+func current_month() {
+    return month()
+}
+
+func current_day() {
+    return day()
+}
+
+func module_name() {
+    return "stdlib.datetime"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

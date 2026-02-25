@@ -1,0 +1,59 @@
+@package "color.names"
+
+from color.constants import *
+
+func fg_code(nombre) {
+    if nombre == null or nombre == "" {
+        return ""
+    }
+    if nombre == "red" or nombre == "rojo" {
+        return ROJO()
+    }
+    if nombre == "green" or nombre == "verde" {
+        return VERDE()
+    }
+    if nombre == "blue" or nombre == "azul" {
+        return AZUL()
+    }
+    if nombre == "yellow" or nombre == "amarillo" {
+        return AMARILLO()
+    }
+    if nombre == "magenta" {
+        return MAGENTA()
+    }
+    if nombre == "cyan" {
+        return CYAN()
+    }
+    if nombre == "white" or nombre == "blanco" {
+        return BLANCO()
+    }
+    return ""
+}
+
+func bg_code(nombre) {
+    if nombre == null or nombre == "" {
+        return ""
+    }
+    if nombre == "red" or nombre == "rojo" {
+        return BG_ROJO()
+    }
+    if nombre == "green" or nombre == "verde" {
+        return BG_VERDE()
+    }
+    if nombre == "blue" or nombre == "azul" {
+        return BG_AZUL()
+    }
+    if nombre == "yellow" or nombre == "amarillo" {
+        return BG_AMARILLO()
+    }
+    if nombre == "magenta" {
+        return BG_MAGENTA()
+    }
+    if nombre == "cyan" {
+        return BG_CYAN()
+    }
+    if nombre == "white" or nombre == "blanco" {
+        return BG_BLANCO()
+    }
+    return ""
+}

@@ -1,0 +1,27 @@
+@package "color.compose"
+
+from color.constants import RESET, BOLD, UNDERLINE, DIM
+from color.names import fg_code, bg_code
+
+func colorize(texto, fg, bg, bold, underline, dim) {
+    var pref = ""
+    if bold {
+        pref = pref + BOLD()
+    }
+    if underline {
+        pref = pref + UNDERLINE()
+    }
+    if dim {
+        pref = pref + DIM()
+    }
+    pref = pref + fg_code(fg) + bg_code(bg)
+    return pref + texto + RESET()
+}
+
+func paint(texto, fg) {
+    return colorize(texto, fg, "", false, false, false)
+}
+
+func highlight(texto, fg, bg) {
+    return colorize(texto, fg, bg, false, false, false)
+}

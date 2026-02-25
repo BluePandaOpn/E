@@ -61,6 +61,10 @@ class HTTPResponse {
     func bad_request(body) {
         return this.send_status(400, "Bad Request", "text/plain; charset=utf-8", body)
     }
+
+    func internal_error(body) {
+        return this.send_status(500, "Internal Server Error", "text/plain; charset=utf-8", body)
+    }
 }
 
 class HTTPServer {
@@ -159,4 +163,20 @@ func json_ok(client_id, body) {
 
 func html_ok(client_id, body) {
     return response(client_id).html(body)
+}
+
+func module_name() {
+    return "stdlib.http"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

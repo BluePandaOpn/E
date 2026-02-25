@@ -16,8 +16,6 @@ func info() {
     return "platform=" + platform() + ", version=" + version() + ", exe=" + executable()
 }
 
-
-
 // Extensiones utilitarias
 func is_windows() {
     return platform() == "windows"
@@ -27,6 +25,26 @@ func is_linux() {
     return platform() == "linux"
 }
 
+func is_macos() {
+    return platform() == "macos"
+}
+
 func summary() {
     return info()
+}
+
+func module_name() {
+    return "stdlib.sys"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

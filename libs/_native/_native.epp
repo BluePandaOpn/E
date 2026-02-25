@@ -1,10 +1,17 @@
 // Runtime builtin mode: no requiere loadlib en este entorno.
 
-// Extensiones utilitarias
 func builtin_mode() {
     return true
 }
 
 func runtime_name() {
     return "native_std_cpp"
+}
+
+func module_name() {
+    return "stdlib._native"
+}
+
+func module_version() {
+    return "2.0.0"
 }

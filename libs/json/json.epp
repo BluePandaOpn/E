@@ -20,11 +20,21 @@ func parse_number(text) {
     return loads_number(text)
 }
 
+func loads(text) {
+    return loads_number(text)
+}
+
+func parse(text) {
+    return loads(text)
+}
+
 func is_valid_number(text) {
     return json_is_valid_number(text)
 }
 
-
+func is_valid(text) {
+    return is_valid_number(text)
+}
 
 // Extensiones utilitarias
 func stringify(text) {
@@ -37,4 +47,20 @@ func parse_num(text) {
 
 func valid_number(text) {
     return is_valid_number(text)
+}
+
+func module_name() {
+    return "stdlib.json"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

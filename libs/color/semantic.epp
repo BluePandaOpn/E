@@ -1,0 +1,27 @@
+@package "color.semantic"
+
+from color.compose import colorize
+
+func error(texto) {
+    return colorize(texto, "red", "", true, false, false)
+}
+
+func success(texto) {
+    return colorize(texto, "green", "", true, false, false)
+}
+
+func warning(texto) {
+    return colorize(texto, "yellow", "", true, false, false)
+}
+
+func log_error(texto) {
+    print(error(texto))
+}
+
+func log_success(texto) {
+    print(success(texto))
+}
+
+func log_warning(texto) {
+    print(warning(texto))
+}

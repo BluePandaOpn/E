@@ -1,0 +1,40 @@
+@package "color.rgb"
+
+from color.constants import RESET
+
+func clamp255(v) {
+    var n = int(v)
+    if n < 0 {
+        return 0
+    }
+    if n > 255 {
+        return 255
+    }
+    return n
+}
+
+func rgb_code(r, g, b) {
+    var rr = clamp255(r)
+    var gg = clamp255(g)
+    var bb = clamp255(b)
+    return "\033[38;2;" + rr + ";" + gg + ";" + bb + "m"
+}
+
+func bg_rgb_code(r, g, b) {
+    var rr = clamp255(r)
+    var gg = clamp255(g)
+    var bb = clamp255(b)
+    return "\033[48;2;" + rr + ";" + gg + ";" + bb + "m"
+}
+
+func rgb(texto, r, g, b) {
+    return rgb_code(r, g, b) + texto + RESET()
+}
+
+func bg_rgb(texto, r, g, b) {
+    return bg_rgb_code(r, g, b) + texto + RESET()
+}
+
+func rgb_style(texto, fr, fg, fb, br, bg, bb) {
+    return rgb_code(fr, fg, fb) + bg_rgb_code(br, bg, bb) + texto + RESET()
+}

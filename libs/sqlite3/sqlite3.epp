@@ -4,10 +4,12 @@ class SQLiteConnection {
     func init(path) {
         this.path = path
         this.open_result = sqlite3_open()
+        this.opened = true
+        this.placeholder = true
     }
 
     func ok() {
-        // Runtime actual devuelve un mensaje, no una conexion real.
+        // Runtime actual devuelve estado textual y no una conexion real completa.
         return false
     }
 
@@ -15,11 +17,28 @@ class SQLiteConnection {
         return this.open_result
     }
 
+    func is_open() {
+        return this.opened
+    }
+
+    func is_placeholder() {
+        return this.placeholder
+    }
+
     func execute(sql) {
-        return "sqlite3.execute no disponible aun. SQL: " + sql
+        return "sqlite3.execute placeholder. SQL=" + sql
+    }
+
+    func query(sql) {
+        return this.execute(sql)
+    }
+
+    func execute_many2(sql1, sql2) {
+        return this.execute(sql1) + " | " + this.execute(sql2)
     }
 
     func close() {
+        this.opened = false
         return true
     }
 }
@@ -32,8 +51,6 @@ func connect(path) {
     return SQLiteConnection(path)
 }
 
-
-
 // Extensiones utilitarias
 func memory() {
     return connect(":memory:")
@@ -45,4 +62,28 @@ func open_memory() {
 
 func status(path) {
     return connect(path).status()
+}
+
+func available() {
+    return false
+}
+
+func runtime_note() {
+    return "Driver sqlite3 real pendiente en runtime actual"
+}
+
+func module_name() {
+    return "stdlib.sqlite3"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

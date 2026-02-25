@@ -1,0 +1,19 @@
+@package "color.runtime"
+
+import _native
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}
+
+func load_native_backend(path) {
+    return loadlib(path)
+}
+
+func native_extension_hint() {
+    return "Compila DLL/so con API de color y cargala con load_native_backend(path)"
+}

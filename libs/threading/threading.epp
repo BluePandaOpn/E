@@ -1,5 +1,52 @@
 import _native
 
+class Thread {
+    func init(name) {
+        this.name = name
+        this.running = false
+        this.daemon = false
+    }
+
+    func start() {
+        this.running = true
+        return true
+    }
+
+    func join() {
+        this.running = false
+        return true
+    }
+
+    func is_alive() {
+        return this.running
+    }
+
+    func set_daemon(flag) {
+        this.daemon = flag
+        return this
+    }
+}
+
+class Lock {
+    func init() {
+        this.locked = false
+    }
+
+    func acquire() {
+        this.locked = true
+        return true
+    }
+
+    func release() {
+        this.locked = false
+        return true
+    }
+
+    func is_locked() {
+        return this.locked
+    }
+}
+
 func cpu_count() {
     return threading_cpu_count()
 }
@@ -13,7 +60,13 @@ func active_count() {
     return 1
 }
 
+func thread(name) {
+    return Thread(name)
+}
 
+func lock() {
+    return Lock()
+}
 
 // Extensiones utilitarias
 func can_parallel() {
@@ -24,4 +77,28 @@ func workers_hint() {
     var n = cpu_count()
     if n < 1 { return 1 }
     return n
+}
+
+func supported() {
+    return false
+}
+
+func runtime_note() {
+    return "Threading avanzado pendiente en runtime actual"
+}
+
+func module_name() {
+    return "stdlib.threading"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

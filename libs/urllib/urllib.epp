@@ -5,7 +5,7 @@ func quote(text) {
 }
 
 func quote_plus(text) {
-    // Placeholder: en runtime actual se comporta igual que quote.
+    // Runtime actual usa el mismo backend de quote.
     return quote(text)
 }
 
@@ -13,7 +13,17 @@ func encode_component(text) {
     return quote(text)
 }
 
+func urlencode_pair(key, value) {
+    return quote_plus(key) + "=" + quote_plus(value)
+}
 
+func build_query2(k1, v1, k2, v2) {
+    return urlencode_pair(k1, v1) + "&" + urlencode_pair(k2, v2)
+}
+
+func build_query3(k1, v1, k2, v2, k3, v3) {
+    return build_query2(k1, v1, k2, v2) + "&" + urlencode_pair(k3, v3)
+}
 
 // Extensiones utilitarias
 func encode(text) {
@@ -26,4 +36,20 @@ func encode_path(text) {
 
 func encode_query_param(text) {
     return quote_plus(text)
+}
+
+func module_name() {
+    return "stdlib.urllib"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

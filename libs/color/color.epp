@@ -1,25 +1,30 @@
-// Libreria ANSI color para consola.
+@package "color.color"
+
+import color.constants
+
+// Nucleo orientado a objetos para aplicar codigos ANSI.
 class ConsolaColor {
     func init() {
-        this.reset = "\033[0m"
-        this.bold = "\033[1m"
-        this.dim = "\033[2m"
-        this.underline = "\033[4m"
-        this.rojo = "\033[31m"
-        this.verde = "\033[32m"
-        this.azul = "\033[34m"
-        this.amarillo = "\033[33m"
-        this.magenta = "\033[35m"
-        this.cyan = "\033[36m"
-        this.blanco = "\033[37m"
+        this.reset = RESET()
+        this.bold = BOLD()
+        this.dim = DIM()
+        this.underline = UNDERLINE()
 
-        this.bg_rojo = "\033[41m"
-        this.bg_verde = "\033[42m"
-        this.bg_azul = "\033[44m"
-        this.bg_amarillo = "\033[43m"
-        this.bg_magenta = "\033[45m"
-        this.bg_cyan = "\033[46m"
-        this.bg_blanco = "\033[47m"
+        this.rojo = ROJO()
+        this.verde = VERDE()
+        this.azul = AZUL()
+        this.amarillo = AMARILLO()
+        this.magenta = MAGENTA()
+        this.cyan = CYAN()
+        this.blanco = BLANCO()
+
+        this.bg_rojo = BG_ROJO()
+        this.bg_verde = BG_VERDE()
+        this.bg_azul = BG_AZUL()
+        this.bg_amarillo = BG_AMARILLO()
+        this.bg_magenta = BG_MAGENTA()
+        this.bg_cyan = BG_CYAN()
+        this.bg_blanco = BG_BLANCO()
     }
 
     func colorear(texto, color_codigo) {
@@ -31,26 +36,7 @@ class ConsolaColor {
     }
 }
 
-var c = ConsolaColor()
-
-func rojo(t) { return c.colorear(t, c.rojo) }
-func verde(t) { return c.colorear(t, c.verde) }
-func azul(t) { return c.colorear(t, c.azul) }
-func amarillo(t) { return c.colorear(t, c.amarillo) }
-func magenta(t) { return c.colorear(t, c.magenta) }
-func cyan(t) { return c.colorear(t, c.cyan) }
-func blanco(t) { return c.colorear(t, c.blanco) }
-
-func bg_rojo(t) { return c.colorear(t, c.bg_rojo) }
-func bg_verde(t) { return c.colorear(t, c.bg_verde) }
-func bg_azul(t) { return c.colorear(t, c.bg_azul) }
-func bg_amarillo(t) { return c.colorear(t, c.bg_amarillo) }
-func bg_magenta(t) { return c.colorear(t, c.bg_magenta) }
-func bg_cyan(t) { return c.colorear(t, c.bg_cyan) }
-func bg_blanco(t) { return c.colorear(t, c.bg_blanco) }
-
-func negrita(t) { return c.estilo(t, "", c.bold) }
-func subrayado(t) { return c.estilo(t, "", c.underline) }
-func alerta(t) { return c.estilo(t, c.rojo, c.bold) }
-func exito(t) { return c.estilo(t, c.verde, c.bold) }
-func info(t) { return c.estilo(t, c.cyan, c.bold) }
+func strip_ansi(t) {
+    // Placeholder de compatibilidad: pendiente regex nativo en runtime.
+    return t
+}

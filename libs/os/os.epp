@@ -36,7 +36,19 @@ func unlink(path) {
     return remove(path)
 }
 
+func ensure_dir(path) {
+    if exists(path) {
+        return is_dir(path)
+    }
+    return mkdir(path)
+}
 
+func remove_if_exists(path) {
+    if not exists(path) {
+        return true
+    }
+    return remove(path)
+}
 
 // Extensiones utilitarias
 func join2(a, b) {
@@ -47,6 +59,26 @@ func join3(a, b, c) {
     return join2(join2(a, b), c)
 }
 
+func join4(a, b, c, d) {
+    return join2(join3(a, b, c), d)
+}
+
 func pwd() {
     return getcwd()
+}
+
+func module_name() {
+    return "stdlib.os"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

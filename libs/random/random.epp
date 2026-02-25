@@ -20,7 +20,19 @@ func uniform(a, b) {
     return random_uniform(a, b)
 }
 
+func randrange(stop) {
+    return randint(0, stop - 1)
+}
 
+func randrange2(start, stop) {
+    return randint(start, stop - 1)
+}
+
+func randrange_step(start, stop, step) {
+    var n = randrange2(start, stop)
+    var k = int((n - start) / step)
+    return start + (k * step)
+}
 
 // Extensiones utilitarias
 func randbool() {
@@ -33,4 +45,33 @@ func chance(percent) {
 
 func rand01() {
     return random()
+}
+
+func coinflip() {
+    return randbool()
+}
+
+func random_sign() {
+    if randbool() { return 1 }
+    return -1
+}
+
+func random_unit() {
+    return uniform(-1, 1)
+}
+
+func module_name() {
+    return "stdlib.random"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

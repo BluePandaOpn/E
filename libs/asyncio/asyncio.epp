@@ -1,5 +1,28 @@
 import _native
 
+class TaskHandle {
+    func init(name) {
+        this.name = name
+        this.state = "pending"
+        this.result = ""
+    }
+
+    func done() {
+        return this.state == "done"
+    }
+
+    func cancel() {
+        this.state = "cancelled"
+        return true
+    }
+
+    func set_result(value) {
+        this.result = value
+        this.state = "done"
+        return this
+    }
+}
+
 func sleep(seconds) {
     return asyncio_sleep(seconds)
 }
@@ -12,22 +35,44 @@ func sleep_ms(milliseconds) {
     return sleep(milliseconds / 1000)
 }
 
-func run(task_name) {
-    // Runtime actual: placeholder para compatibilidad de API.
-    return "asyncio.run no disponible aun. Task solicitada: " + task_name
-}
-
-
-
-// Extensiones utilitarias
-func sleep_seconds(seconds) {
-    return sleep(seconds)
-}
-
 func sleep_minutes(minutes) {
     return sleep(minutes * 60)
 }
 
 func wait(seconds) {
     return sleep(seconds)
+}
+
+func create_task(task_name) {
+    return TaskHandle(task_name)
+}
+
+func run(task_name) {
+    // Compatibilidad pro: API consistente aunque el scheduler completo aun no exista.
+    var task = create_task(task_name)
+    return task.set_result("asyncio.run placeholder: " + task_name)
+}
+
+func supported() {
+    return false
+}
+
+func runtime_note() {
+    return "Event loop avanzado aun no disponible en runtime actual"
+}
+
+func module_name() {
+    return "stdlib.asyncio"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

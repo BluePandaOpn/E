@@ -12,8 +12,6 @@ func header2(a, b) {
     return row2(a, b)
 }
 
-
-
 // Extensiones utilitarias
 func row3(a, b, c) {
     return row2(a, b) + "," + c
@@ -23,6 +21,30 @@ func row4(a, b, c, d) {
     return row3(a, b, c) + "," + d
 }
 
+func row5(a, b, c, d, e) {
+    return row4(a, b, c, d) + "," + e
+}
+
 func header3(a, b, c) {
     return row3(a, b, c)
+}
+
+func header4(a, b, c, d) {
+    return row4(a, b, c, d)
+}
+
+func module_name() {
+    return "stdlib.csv"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

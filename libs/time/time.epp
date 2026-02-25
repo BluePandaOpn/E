@@ -12,6 +12,10 @@ func monotonic() {
     return time_monotonic()
 }
 
+func perf_counter() {
+    return monotonic()
+}
+
 func sleep(seconds) {
     return time_sleep(seconds)
 }
@@ -20,7 +24,9 @@ func sleep_ms(milliseconds) {
     return sleep(milliseconds / 1000)
 }
 
-
+func sleep_us(microseconds) {
+    return sleep(microseconds / 1000000)
+}
 
 // Extensiones utilitarias
 func sleep_seconds(seconds) {
@@ -33,4 +39,24 @@ func sleep_minutes(minutes) {
 
 func elapsed(start, finish) {
     return finish - start
+}
+
+func since(start) {
+    return monotonic() - start
+}
+
+func module_name() {
+    return "stdlib.time"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }

@@ -1,0 +1,20 @@
+@package "color.printing"
+
+from color.compose import colorize, paint
+from color.rgb import rgb, bg_rgb
+
+func print_color(texto, fg) {
+    print(paint(texto, fg))
+}
+
+func print_style(texto, fg, bg, bold, underline, dim) {
+    print(colorize(texto, fg, bg, bold, underline, dim))
+}
+
+func print_rgb(texto, r, g, b) {
+    print(rgb(texto, r, g, b))
+}
+
+func print_bg_rgb(texto, r, g, b) {
+    print(bg_rgb(texto, r, g, b))
+}

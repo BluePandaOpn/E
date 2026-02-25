@@ -1,3 +1,5 @@
+import _native
+
 // Base de collections en runtime actual.
 // E++ todavia no tiene listas/diccionarios nativos como Python,
 // pero este modulo ofrece estructuras simples y consistentes.
@@ -24,6 +26,14 @@ class Pair {
     }
 }
 
+class Triple {
+    func init(a, b, c) {
+        this.first = a
+        this.second = b
+        this.third = c
+    }
+}
+
 class NamedValue {
     func init(name, value) {
         this.name = name
@@ -35,15 +45,21 @@ func pair(a, b) {
     return Pair(a, b)
 }
 
+func triple(a, b, c) {
+    return Triple(a, b, c)
+}
+
 func named(name, value) {
     return NamedValue(name, value)
 }
 
-
-
 // Extensiones utilitarias
 func tuple2(a, b) {
     return pair(a, b)
+}
+
+func tuple3(a, b, c) {
+    return triple(a, b, c)
 }
 
 func flipped(a, b) {
@@ -52,4 +68,20 @@ func flipped(a, b) {
 
 func named_empty(name) {
     return NamedValue(name, "")
+}
+
+func module_name() {
+    return "stdlib.collections"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
 }
