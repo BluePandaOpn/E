@@ -1,0 +1,114 @@
+{
+  "Variable": {
+    "prefix": "var",
+    "body": [
+      "var ${1:nombre} = ${2:0}"
+    ],
+    "description": "Declarar variable"
+  },
+  "Import": {
+    "prefix": "import",
+    "body": [
+      "import ${1:time}"
+    ],
+    "description": "Importar modulo E++ (nombre simple)"
+  },
+  "Import Ruta": {
+    "prefix": "importr",
+    "body": [
+      "import \"${1:libs/modulo.epp}\""
+    ],
+    "description": "Importar modulo E++ por ruta"
+  },
+  "From Import": {
+    "prefix": "from",
+    "body": [
+      "from ${1:stdlib.asyncio} import ${2:sleep}"
+    ],
+    "description": "Importar simbolos desde un modulo o paquete"
+  },
+  "Package Init": {
+    "prefix": "package",
+    "body": [
+      "@package \"${1:stdlib}\""
+    ],
+    "description": "Declarar id de paquete para __init__"
+  },
+  "Funcion": {
+    "prefix": "func",
+    "body": [
+      "func ${1:nombre}(${2:param}) {",
+      "    ${3:return null}",
+      "}"
+    ],
+    "description": "Declarar funcion"
+  },
+  "Clase": {
+    "prefix": "class",
+    "body": [
+      "class ${1:Nombre} {",
+      "    func init(${2:param}) {",
+      "        this.${3:campo} = ${2:param}",
+      "    }",
+      "",
+      "    func ${4:metodo}() {",
+      "        print(this.${3:campo})",
+      "    }",
+      "}"
+    ],
+    "description": "Declarar clase orientada a objetos"
+  },
+  "If Else": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condicion} {",
+      "    ${2:print(\"ok\")}",
+      "} else {",
+      "    ${3:print(\"no\")}",
+      "}"
+    ],
+    "description": "Bloque if/else"
+  },
+  "While": {
+    "prefix": "while",
+    "body": [
+      "while ${1:condicion} {",
+      "    ${2:print(\"loop\")}",
+      "}"
+    ],
+    "description": "Bloque while"
+  },
+  "Funcion Return": {
+    "prefix": "funcr",
+    "body": [
+      "func ${1:nombre}(${2:args}) {",
+      "    return ${3:null}",
+      "}"
+    ],
+    "description": "Funcion con return"
+  },
+  "Benchmark Basico": {
+    "prefix": "bench",
+    "body": [
+      "import time",
+      "",
+      "func ${1:test}(n) {",
+      "    var i = 0",
+      "    var acc = 0",
+      "    while i < n {",
+      "        acc = acc + i",
+      "        i = i + 1",
+      "    }",
+      "    return acc",
+      "}",
+      "",
+      "var N = ${2:1000000}",
+      "var t0 = monotonic()",
+      "var r = ${1:test}(N)",
+      "var t1 = monotonic()",
+      "print(\"resultado: \" + r)",
+      "print(\"tiempo(s): \" + (t1 - t0))"
+    ],
+    "description": "Plantilla benchmark de velocidad"
+  }
+}

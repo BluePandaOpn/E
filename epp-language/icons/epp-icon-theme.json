@@ -1,0 +1,36 @@
+﻿{
+  "$schema": "vscode://schemas/icon-theme",
+  "iconDefinitions": {
+    "_epp": {
+      "iconPath": "../logo.png"
+    },
+    "_init": {
+      "iconPath": "../assets/__init__.png"
+    },
+    "_epp_folder": {
+      "iconPath": "../assets/epp-folder.png"
+    },
+    "_init_folder": {
+      "iconPath": "../assets/__init__.png"
+    }
+  },
+  "folder": "_epp_folder",
+  "folderExpanded": "_epp_folder",
+  "fileExtensions": {
+    "epp": "_epp"
+  },
+  "fileNames": {
+    "__init__": "_init",
+    "__init__.epp": "_init",
+    ".__init__": "_init",
+    ".__init__.epp": "_init"
+  },
+  "folderNames": {
+    "__init__": "_init_folder",
+    ".__init__": "_init_folder"
+  },
+  "folderNamesExpanded": {
+    "__init__": "_init_folder",
+    ".__init__": "_init_folder"
+  }
+}

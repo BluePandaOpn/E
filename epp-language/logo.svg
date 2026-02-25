@@ -1,0 +1,32 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <!-- Definición de la sombra/división diagonal -->
+            <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#9b59b6; stop-opacity:1"></stop>
+                <stop offset="50%" style="stop-color:#9b59b6; stop-opacity:1"></stop>
+                <stop offset="50%" style="stop-color:#7d3c98; stop-opacity:1"></stop>
+                <stop offset="100%" style="stop-color:#7d3c98; stop-opacity:1"></stop>
+            </linearGradient>
+            
+            <!-- Sombra interna para el texto "E" para simular profundidad si se desea -->
+            <filter id="textShadow" x="0" y="0" width="200%" height="200%">
+                <feOffset result="offOut" in="SourceAlpha" dx="2" dy="2"></feOffset>
+                <feGaussianBlur result="blurOut" in="offOut" stdDeviation="3"></feGaussianBlur>
+                <feBlend in="SourceGraphic" in2="blurOut" mode="normal"></feBlend>
+            </filter>
+        </defs>
+
+        <!-- Fondo Hexagonal con bordes redondeados -->
+        <path d="M466.8 143.5L296.1 44.9C271.3 30.6 240.7 30.6 215.9 44.9L45.2 143.5C20.4 157.8 5.1 184.3 5.1 212.9V409.9C5.1 438.5 20.4 465 45.2 479.3L215.9 577.9C240.7 592.2 271.3 592.2 296.1 577.9L466.8 479.3C491.6 465 506.9 438.5 506.9 409.9V212.9C506.9 184.3 491.6 157.8 466.8 143.5Z" fill="url(#bgGradient)" transform="scale(0.85) translate(45, 10)"></path>
+
+        <!-- La letra E -->
+        <g fill="white">
+            <path d="M141.6 128.5V383.5H369.6V315.5H215.6V281.5H335.6V219.5H215.6V189.5H361.6V128.5H141.6Z"></path>
+            
+            <!-- Los símbolos ++ -->
+            <!-- Primer + -->
+            <path d="M336.5 233.5V251.5H320.5V263.5H336.5V281.5H348.5V263.5H364.5V251.5H348.5V233.5H336.5Z"></path>
+            <!-- Segundo + -->
+            <path d="M410.5 233.5V251.5H394.5V263.5H410.5V281.5H422.5V263.5H438.5V251.5H422.5V233.5H410.5Z"></path>
+        </g>
+    </svg>

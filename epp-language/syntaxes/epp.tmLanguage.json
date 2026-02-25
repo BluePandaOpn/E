@@ -1,0 +1,62 @@
+{
+  "name": "E++",
+  "scopeName": "source.epp",
+  "patterns": [
+    {
+      "name": "comment.line.double-slash.epp",
+      "match": "//.*$"
+    },
+    {
+      "name": "comment.block.epp",
+      "begin": "/\\*",
+      "end": "\\*/"
+    },
+    {
+      "name": "string.quoted.double.epp",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.epp",
+          "match": "\\\\."
+        }
+      ]
+    },
+    {
+      "name": "constant.numeric.epp",
+      "match": "\\b\\d+(?:\\.\\d+)?\\b"
+    },
+    {
+      "name": "keyword.control.epp",
+      "match": "\\b(if|else|while|end|return|and|or|not|class|this|from)\\b"
+    },
+    {
+      "name": "keyword.declaration.epp",
+      "match": "\\b(var|func|import|package)\\b"
+    },
+    {
+      "name": "storage.modifier.epp",
+      "match": "@"
+    },
+    {
+      "name": "constant.language.epp",
+      "match": "\\b(true|false|null)\\b"
+    },
+    {
+      "name": "entity.name.function.epp",
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()"
+    },
+    {
+      "name": "variable.other.epp",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+    },
+    {
+      "name": "keyword.operator.epp",
+      "match": "(==|!=|>=|<=|=|>|<|\\+|-|\\*|/)"
+    },
+    {
+      "name": "punctuation.accessor.epp",
+      "match": "(\\.|\\{|\\})"
+    }
+  ]
+}

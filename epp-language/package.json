@@ -1,0 +1,150 @@
+{
+  "name": "epp-language",
+  "displayName": "E++ Language",
+  "description": "Soporte avanzado para E++ (.epp): resaltado, autocompletado, diagnosticos y ejecucion",
+  "version": "0.2.3",
+  "publisher": "epp",
+  "icon": "logo.png",
+  "main": "./src/extension.js",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "activationEvents": [
+    "onLanguage:epp",
+    "onCommand:eppLanguage.runFile",
+    "onCommand:eppLanguage.checkFile",
+    "onCommand:eppLanguage.compileFile",
+    "onCommand:eppLanguage.doctor"
+  ],
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "epp",
+        "aliases": [
+          "E++",
+          "epp"
+        ],
+        "extensions": [
+          ".epp"
+        ],
+        "filenames": [
+          "__init__",
+          ".__init__"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./logo.png",
+          "dark": "./logo.png"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "eppLanguage.runFile",
+        "title": "E++: Run Current File",
+        "category": "E++"
+      },
+      {
+        "command": "eppLanguage.checkFile",
+        "title": "E++: Check Current File",
+        "category": "E++"
+      },
+      {
+        "command": "eppLanguage.compileFile",
+        "title": "E++: Compile Current File",
+        "category": "E++"
+      },
+      {
+        "command": "eppLanguage.doctor",
+        "title": "E++: Doctor",
+        "category": "E++"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "eppLanguage.runFile",
+          "when": "editorLangId == epp",
+          "group": "navigation"
+        },
+        {
+          "command": "eppLanguage.checkFile",
+          "when": "editorLangId == epp",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "eppLanguage.runFile",
+          "when": "resourceExtname == .epp || resourceFilename == __init__ || resourceFilename == .__init__",
+          "group": "navigation"
+        },
+        {
+          "command": "eppLanguage.checkFile",
+          "when": "resourceExtname == .epp || resourceFilename == __init__ || resourceFilename == .__init__",
+          "group": "navigation"
+        },
+        {
+          "command": "eppLanguage.compileFile",
+          "when": "resourceExtname == .epp || resourceFilename == __init__ || resourceFilename == .__init__",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "E++",
+      "properties": {
+        "eppLanguage.cliPath": {
+          "type": "string",
+          "default": "auto",
+          "description": "Ruta al ejecutable epp. Usa 'auto' para detectar build/Release/epp.exe o epp en PATH."
+        },
+        "eppLanguage.autoSaveBeforeRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "Guardar automaticamente el archivo .epp antes de ejecutar/check/compile."
+        },
+        "eppLanguage.defaultCompileOutput": {
+          "type": "string",
+          "default": "",
+          "description": "Nombre/ruta por defecto para compile. Si esta vacio, usa <archivo>.exe junto al .epp."
+        },
+        "eppLanguage.diagnostics.styleWarnings": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mostrar advertencias de estilo (por ejemplo print sin parentesis)."
+        },
+        "eppLanguage.diagnostics.unresolvedImportWarnings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Advertir cuando un import no puede resolverse en workspace/stdlib."
+        }
+      }
+    },
+    "grammars": [
+      {
+        "language": "epp",
+        "scopeName": "source.epp",
+        "path": "./syntaxes/epp.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "epp",
+        "path": "./snippets/snippets.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "epp-file-icons",
+        "label": "E++ File Icons",
+        "path": "./icons/epp-icon-theme.json"
+      }
+    ]
+  }
+}
