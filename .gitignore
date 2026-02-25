@@ -1,0 +1,37 @@
+# Build
+/build/
+/cmake-build*/
+
+# AOT temporales/generados
+*.aot.cpp
+*.build.log
+*.exe
+*.obj
+*.iobj
+*.ipdb
+*.ilk
+*.pdb
+*.recipe
+*.tlog
+
+# Visual Studio/CMake
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+
+# Version manager local cache
+/.epp_versions/
+
+# Examples generated outputs
+/examples/*.exe
+/examples/*.build.log
+/examples/*.aot.cpp
+/examples/*.aot_build/
+
+# OS
+.DS_Store
+Thumbs.db
