@@ -1,0 +1,61 @@
+@package "stdlib.os"
+
+import _native
+
+func getcwd() {
+    return os_getcwd()
+}
+
+func cwd() {
+    return getcwd()
+}
+
+func exists(path) {
+    return os_exists(path)
+}
+
+func is_file(path) {
+    return os_is_file(path)
+}
+
+func is_dir(path) {
+    return os_is_dir(path)
+}
+
+func mkdir(path) {
+    return os_mkdir(path)
+}
+
+func makedirs(path) {
+    return mkdir(path)
+}
+
+func remove(path) {
+    return os_remove(path)
+}
+
+func unlink(path) {
+    return remove(path)
+}
+
+
+
+// Extensiones utilitarias
+func join2(a, b) {
+    return a + "/" + b
+}
+
+func join3(a, b, c) {
+    return join2(join2(a, b), c)
+}
+
+func pwd() {
+    return getcwd()
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

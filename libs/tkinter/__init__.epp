@@ -1,0 +1,124 @@
+@package "stdlib.tkinter"
+
+import _native
+
+func available() {
+    return tkinter_available()
+}
+
+func is_available() {
+    return available()
+}
+
+class TkApp {
+    func init(title) {
+        this.app_title = title
+        this.ready = available()
+        this.window_id = -1
+    }
+
+    func ok() {
+        return this.ready
+    }
+
+    func create(width, height) {
+        if not this.ready {
+            return false
+        }
+        this.window_id = int(tkinter_window_create(this.app_title, width, height))
+        return this.window_id > 0
+    }
+
+    func title(text) {
+        if this.window_id <= 0 {
+            return false
+        }
+        this.app_title = text
+        return tkinter_window_set_title(this.window_id, text)
+    }
+
+    func label(text, x, y, w, h) {
+        if this.window_id <= 0 {
+            return -1
+        }
+        return int(tkinter_label_add(this.window_id, text, x, y, w, h))
+    }
+
+    func button(text, x, y, w, h) {
+        if this.window_id <= 0 {
+            return -1
+        }
+        return int(tkinter_button_add(this.window_id, text, x, y, w, h))
+    }
+
+    func button_clicked(button_id) {
+        if this.window_id <= 0 {
+            return 0
+        }
+        return int(tkinter_button_clicked(this.window_id, button_id))
+    }
+
+    func mainloop() {
+        if this.ready {
+            if this.window_id <= 0 {
+                this.window_id = int(tkinter_window_create(this.app_title, 640, 420))
+            }
+            if this.window_id <= 0 {
+                print("no se pudo crear ventana nativa")
+                return false
+            }
+            tkinter_window_show(this.window_id)
+            return tkinter_mainloop(this.window_id)
+        }
+        print("tkinter no disponible en runtime actual")
+        return false
+    }
+}
+
+func Tk() {
+    return TkApp("E++ App")
+}
+
+func app(title) {
+    return TkApp(title)
+}
+
+
+
+// Extensiones utilitarias
+func window(title) {
+    return app(title)
+}
+
+func create_app(title) {
+    return app(title)
+}
+
+func can_use() {
+    return is_available()
+}
+
+func create_window(title, width, height) {
+    var a = TkApp(title)
+    if not a.create(width, height) {
+        return a
+    }
+    return a
+}
+
+func demo(title) {
+    var a = TkApp(title)
+    if not a.create(640, 420) {
+        return false
+    }
+    a.label("E++ Tk Native (C++)", 16, 16, 260, 24)
+    a.button("Cerrar", 16, 52, 120, 28)
+    return a.mainloop()
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

@@ -1,0 +1,36 @@
+@package "stdlib.threading"
+
+import _native
+
+func cpu_count() {
+    return threading_cpu_count()
+}
+
+func hardware_concurrency() {
+    return cpu_count()
+}
+
+func active_count() {
+    // Runtime actual no maneja hilos E++ reales todavia.
+    return 1
+}
+
+
+
+// Extensiones utilitarias
+func can_parallel() {
+    return cpu_count() > 1
+}
+
+func workers_hint() {
+    var n = cpu_count()
+    if n < 1 { return 1 }
+    return n
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

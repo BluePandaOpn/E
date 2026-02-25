@@ -1,0 +1,41 @@
+@package "stdlib.sys"
+
+import _native
+
+func platform() {
+    return sys_platform()
+}
+
+func version() {
+    return sys_version()
+}
+
+func executable() {
+    return sys_executable()
+}
+
+func info() {
+    return "platform=" + platform() + ", version=" + version() + ", exe=" + executable()
+}
+
+
+
+// Extensiones utilitarias
+func is_windows() {
+    return platform() == "windows"
+}
+
+func is_linux() {
+    return platform() == "linux"
+}
+
+func summary() {
+    return info()
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

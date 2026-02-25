@@ -1,4 +1,0 @@
-@package "libs"
-
-import libs.utilidades
-import stdlib

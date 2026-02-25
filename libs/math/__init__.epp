@@ -1,0 +1,60 @@
+@package "stdlib.math"
+
+import _native
+
+var pi = math_pi()
+var e = math_e()
+var tau = pi * 2
+
+func sqrt(x) { return math_sqrt(x) }
+func pow(a, b) { return math_pow(a, b) }
+func floor(x) { return math_floor(x) }
+func ceil(x) { return math_ceil(x) }
+func sin(x) { return math_sin(x) }
+func cos(x) { return math_cos(x) }
+func tan(x) { return math_tan(x) }
+func log(x) { return math_log(x) }
+func exp(x) { return math_exp(x) }
+
+func abs(x) {
+    if x < 0 {
+        return 0 - x
+    }
+    return x
+}
+
+func min(a, b) {
+    if a < b { return a }
+    return b
+}
+
+func max(a, b) {
+    if a > b { return a }
+    return b
+}
+
+func clamp(x, low, high) {
+    return max(low, min(x, high))
+}
+
+
+
+// Extensiones utilitarias
+func round(x) {
+    return floor(x + 0.5)
+}
+
+func lerp(a, b, t) {
+    return a + ((b - a) * t)
+}
+
+func between(x, low, high) {
+    return x >= low and x <= high
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

@@ -1,5 +1,0 @@
-@package "stdlib"
-
-import _native
-import stdlib.time
-import stdlib.asyncio

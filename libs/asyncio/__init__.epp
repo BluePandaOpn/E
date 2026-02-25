@@ -1,0 +1,42 @@
+@package "stdlib.asyncio"
+
+import _native
+
+func sleep(seconds) {
+    return asyncio_sleep(seconds)
+}
+
+func sleep_seconds(seconds) {
+    return sleep(seconds)
+}
+
+func sleep_ms(milliseconds) {
+    return sleep(milliseconds / 1000)
+}
+
+func run(task_name) {
+    // Runtime actual: placeholder para compatibilidad de API.
+    return "asyncio.run no disponible aun. Task solicitada: " + task_name
+}
+
+
+
+// Extensiones utilitarias
+func sleep_seconds(seconds) {
+    return sleep(seconds)
+}
+
+func sleep_minutes(minutes) {
+    return sleep(minutes * 60)
+}
+
+func wait(seconds) {
+    return sleep(seconds)
+}
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}
