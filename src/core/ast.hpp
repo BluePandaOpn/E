@@ -20,9 +20,12 @@ struct Expr {
         Assign,
         Unary,
         Binary,
+        ListLiteral,
         Call,
         Get,
-        Set
+        Set,
+        Index,
+        IndexSet
     };
     virtual Kind kind() const = 0;
 };
@@ -56,6 +59,11 @@ struct BinaryExpr : Expr {
     Kind kind() const override { return Kind::Binary; }
 };
 
+struct ListLiteralExpr : Expr {
+    std::vector<ExprPtr> elements;
+    Kind kind() const override { return Kind::ListLiteral; }
+};
+
 struct CallExpr : Expr {
     ExprPtr callee;
     std::vector<ExprPtr> args;
@@ -73,6 +81,19 @@ struct SetExpr : Expr {
     Token name;
     ExprPtr value;
     Kind kind() const override { return Kind::Set; }
+};
+
+struct IndexExpr : Expr {
+    ExprPtr object;
+    ExprPtr index;
+    Kind kind() const override { return Kind::Index; }
+};
+
+struct IndexSetExpr : Expr {
+    ExprPtr object;
+    ExprPtr index;
+    ExprPtr value;
+    Kind kind() const override { return Kind::IndexSet; }
 };
 
 struct Stmt {

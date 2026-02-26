@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.4
+
+- Soporte de listas nativas estilo Python con `[]`.
+- Acceso por indice: `lista[0]`, `lista[-1]`.
+- Asignacion por indice: `lista[1] = valor`.
+- Metodos de lista en runtime:
+  - `append(valor)`
+  - `pop()`, `pop(indice)`
+  - `len()`
+  - `clear()`
+- Resolucion de version CLI actualizada a `0.2.4`.
+
 ## v0.2.3
 
 - CLI version alineada a `0.2.3`.

@@ -15,9 +15,13 @@ add_executable(epp
 )
 
 set(EPP_LIB_ROOT "")
-if(EXISTS "${CMAKE_SOURCE_DIR}/lib/lib/native_std_cpp.cpp" AND EXISTS "${CMAKE_SOURCE_DIR}/lib/include/epp_native.h")
+if((EXISTS "${CMAKE_SOURCE_DIR}/lib/lib/native_std_cpp.cpp" OR
+    EXISTS "${CMAKE_SOURCE_DIR}/lib/lib/native_std_cpp/native_std_cpp.cpp") AND
+   EXISTS "${CMAKE_SOURCE_DIR}/lib/include/epp_native.h")
     set(EPP_LIB_ROOT "${CMAKE_SOURCE_DIR}/lib")
-elseif(EXISTS "${CMAKE_SOURCE_DIR}/../lib/lib/native_std_cpp.cpp" AND EXISTS "${CMAKE_SOURCE_DIR}/../lib/include/epp_native.h")
+elseif((EXISTS "${CMAKE_SOURCE_DIR}/../lib/lib/native_std_cpp.cpp" OR
+        EXISTS "${CMAKE_SOURCE_DIR}/../lib/lib/native_std_cpp/native_std_cpp.cpp") AND
+       EXISTS "${CMAKE_SOURCE_DIR}/../lib/include/epp_native.h")
     set(EPP_LIB_ROOT "${CMAKE_SOURCE_DIR}/../lib")
 else()
     message(FATAL_ERROR
@@ -25,19 +29,28 @@ else()
         "'${CMAKE_SOURCE_DIR}/lib' o '${CMAKE_SOURCE_DIR}/../lib'.")
 endif()
 
+set(EPP_NATIVE_STD_CPP_SRC "")
+if(EXISTS "${EPP_LIB_ROOT}/lib/native_std_cpp.cpp")
+    set(EPP_NATIVE_STD_CPP_SRC "${EPP_LIB_ROOT}/lib/native_std_cpp.cpp")
+elseif(EXISTS "${EPP_LIB_ROOT}/lib/native_std_cpp/native_std_cpp.cpp")
+    set(EPP_NATIVE_STD_CPP_SRC "${EPP_LIB_ROOT}/lib/native_std_cpp/native_std_cpp.cpp")
+else()
+    message(FATAL_ERROR "No se encontro fuente native_std_cpp.cpp en ${EPP_LIB_ROOT}/lib")
+endif()
+
 target_include_directories(epp PRIVATE
     src/core
     "${EPP_LIB_ROOT}/include"
 )
 
-add_executable(opn
-    src/cli/opn_main.cpp
+add_executable(did
+    src/cli/did_main.cpp
 )
 
-target_include_directories(opn PRIVATE src/core)
+target_include_directories(did PRIVATE src/core)
 
 add_library(native_std_cpp SHARED
-    "${EPP_LIB_ROOT}/lib/native_std_cpp.cpp"
+    "${EPP_NATIVE_STD_CPP_SRC}"
 )
 
 target_include_directories(native_std_cpp PRIVATE "${EPP_LIB_ROOT}/include")
@@ -80,3 +93,4 @@ else()
         $<$<CONFIG:Release>:-flto>
     )
 endif()
+

@@ -5,6 +5,7 @@
 #include "runtime.hpp"
 #include "version_manager.hpp"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -140,9 +141,10 @@ void printHelp() {
     std::cout << "                                      Compila AOT (LLVM backend: roadmap, no implementado aun)\n";
     std::cout << "  epp -V | --version       Muestra version del CLI\n";
     std::cout << "  epp -v install -l        Lista versiones remotas\n";
-    std::cout << "  epp -v install <ver>     Instala version (ej: V0.2.3)\n";
+    std::cout << "  epp -v install <ver>     Instala version (ej: V0.2.4)\n";
     std::cout << "  epp -v update            Actualiza a la ultima version\n";
     std::cout << "  epp doctor               Verifica entorno y rutas comunes\n";
+    std::cout << "  epp doctor --imports     Muestra rutas de carga de librerias/imports\n";
 }
 
 int runDoctor() {
@@ -151,10 +153,10 @@ int runDoctor() {
 
     const std::vector<std::pair<std::string, std::vector<std::filesystem::path>>> checks = {
         {"CMakeLists.txt", {cwd / "CMakeLists.txt", cwd / "E++" / "CMakeLists.txt"}},
-        {"stdlib time.epp",
-         {cwd / "lib" / "libs" / "stdlib" / "time.epp",
-          parent / "lib" / "libs" / "stdlib" / "time.epp",
-          cwd / "examples" / "libs" / "stdlib" / "time.epp"}},
+        {"stdlib time/__init__.epp",
+         {cwd / "lib" / "libs" / "stdlib" / "time" / "__init__.epp",
+          parent / "lib" / "libs" / "stdlib" / "time" / "__init__.epp",
+          cwd / "examples" / "libs" / "stdlib" / "time" / "__init__.epp"}},
         {"epp_native.h",
          {cwd / "include" / "epp_native.h",
           cwd / "lib" / "include" / "epp_native.h",
@@ -195,10 +197,92 @@ int runDoctor() {
     std::cout << "doctor: faltan " << missing << " rutas/archivos\n";
     return 1;
 }
+
+std::vector<std::filesystem::path> splitEnvPathList(const char* value) {
+    std::vector<std::filesystem::path> out;
+    if (!value || !*value) return out;
+
+#ifdef _WIN32
+    constexpr char kPathSep = ';';
+#else
+    constexpr char kPathSep = ':';
+#endif
+    std::string raw(value);
+    size_t start = 0;
+    while (start <= raw.size()) {
+        const size_t end = raw.find(kPathSep, start);
+        const std::string token = raw.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        if (!token.empty()) out.push_back(std::filesystem::path(token));
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return out;
+}
+
+int runDoctorImports() {
+    const std::filesystem::path cwd = std::filesystem::current_path();
+    const std::filesystem::path parent = cwd.parent_path();
+    std::cout << "E++ doctor imports\n";
+    std::cout << "version: " << VersionManager::cliVersion() << "\n";
+    std::cout << "cwd: " << cwd.string() << "\n";
+
+    const char* eppHome = std::getenv("EPP_HOME");
+    const char* eppPackages = std::getenv("EPP_PACKAGES");
+    const char* eppLib = std::getenv("EPP_LIB");
+
+    std::cout << "EPP_HOME: " << (eppHome && *eppHome ? eppHome : "(no definido)") << "\n";
+    std::cout << "EPP_PACKAGES: " << (eppPackages && *eppPackages ? eppPackages : "(no definido)") << "\n";
+    std::cout << "EPP_LIB: " << (eppLib && *eppLib ? eppLib : "(no definido)") << "\n";
+
+    std::vector<std::filesystem::path> paths = {
+        cwd / "e++" / "packages",
+        cwd / "e++" / "lib" / "libs",
+        cwd / "e++" / "lib" / "libs" / "stdlib",
+        parent / "e++" / "packages",
+        parent / "e++" / "lib" / "libs",
+        parent / "e++" / "lib" / "libs" / "stdlib",
+        cwd / "lib" / "libs",
+        cwd / "lib" / "libs" / "stdlib",
+        parent / "lib" / "libs",
+        parent / "lib" / "libs" / "stdlib",
+    };
+
+    if (eppHome && *eppHome) {
+        const std::filesystem::path home(eppHome);
+        paths.push_back(home / "packages");
+        paths.push_back(home / "lib" / "libs");
+        paths.push_back(home / "lib" / "libs" / "stdlib");
+    }
+    for (const auto& p : splitEnvPathList(eppPackages)) paths.push_back(p);
+    for (const auto& p : splitEnvPathList(eppLib)) {
+        paths.push_back(p);
+        paths.push_back(p / "libs");
+        paths.push_back(p / "libs" / "stdlib");
+    }
+
+    int existsCount = 0;
+    std::cout << "Rutas de import candidatas:\n";
+    for (const auto& p : paths) {
+        const bool ok = std::filesystem::exists(p);
+        std::cout << (ok ? "[OK]   " : "[MISS] ") << p.lexically_normal().string() << "\n";
+        if (ok) ++existsCount;
+    }
+
+    std::cout << "Resumen: " << existsCount << "/" << paths.size() << " rutas existentes\n";
+    return existsCount > 0 ? 0 : 1;
+}
 }
 
 int main(int argc, char** argv) {
     try {
+        if (argc >= 2 && std::string(argv[1]) == "doctor") {
+            if (argc == 2) return runDoctor();
+            if (argc == 3 && std::string(argv[2]) == "--imports") return runDoctorImports();
+            std::cerr << "[E++] Opcion no reconocida para doctor.\n";
+            printHelp();
+            return 1;
+        }
+
         auto runDirectFileMode = [&](const std::string& fileArg) -> int {
             const std::string source = readFile(fileArg);
 
@@ -230,9 +314,6 @@ int main(int argc, char** argv) {
             if (arg1 == "-V" || arg1 == "--version" || arg1 == "--vertion") {
                 std::cout << "E++ CLI v" << VersionManager::cliVersion() << "\n";
                 return 0;
-            }
-            if (arg1 == "doctor") {
-                return runDoctor();
             }
         }
 

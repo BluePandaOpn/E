@@ -6,7 +6,7 @@ if "%EPP_ROOT:~-1%"=="\" set "EPP_ROOT=%EPP_ROOT:~0,-1%"
 set "EPP_BUILD=%EPP_ROOT%\build"
 set "EPP_BIN=%EPP_BUILD%\Release\epp.exe"
 set "EPP_BENCH=%EPP_ROOT%\examples\benchmark_velocidad.epp"
-set "EPP_BENCH_ALT=%EPP_ROOT%\..\lib\libs\stdlib\time.epp"
+set "EPP_BENCH_ALT=%EPP_ROOT%\..\lib\libs\stdlib\time\__init__.epp"
 
 if "%~1"=="" goto :menu
 
@@ -306,7 +306,7 @@ if exist "%EPP_BENCH%" (
   exit /b %errorlevel%
 )
 if exist "%EPP_BENCH_ALT%" (
-  echo [E++] benchmark_velocidad.epp no encontrado; ejecutando prueba minima sobre stdlib/time.epp
+  echo [E++] benchmark_velocidad.epp no encontrado; ejecutando prueba minima sobre stdlib/time/__init__.epp
   "%EPP_BIN%" check "%EPP_BENCH_ALT%"
   exit /b %errorlevel%
 )

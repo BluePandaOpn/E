@@ -137,7 +137,7 @@ std::filesystem::path versionsBaseDir() {
 }
 } // namespace
 
-std::string VersionManager::cliVersion() { return "0.2.3"; }
+std::string VersionManager::cliVersion() { return "0.2.4"; }
 
 std::vector<RemoteVersion> VersionManager::fetchRemoteVersions() const {
     const std::string ps = std::string(
@@ -196,7 +196,7 @@ int VersionManager::installVersion(const std::string& versionInput) const {
                        "E-VER-002",
                        0,
                        1,
-                       "Debes indicar una version valida. Ejemplo: epp -v install V0.2.3");
+                       "Debes indicar una version valida. Ejemplo: epp -v install V0.2.4");
     }
 
     printStep(term::kYellow, "+", "Resolviendo version: " + wanted);

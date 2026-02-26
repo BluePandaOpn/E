@@ -6,6 +6,8 @@
 
 #include <cmath>
 #include <chrono>
+#include <cstdlib>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -129,6 +131,9 @@ std::vector<std::filesystem::path> buildAncestorDirs(const std::filesystem::path
 std::vector<std::filesystem::path> importPrefixes(const std::filesystem::path& dir) {
     return {
         dir,
+        dir / "e++" / "packages",
+        dir / "e++" / "lib" / "libs",
+        dir / "e++" / "lib" / "libs" / "stdlib",
         dir / "libs",
         dir / "libs" / "stdlib",
         dir / "lib" / "libs",
@@ -136,6 +141,93 @@ std::vector<std::filesystem::path> importPrefixes(const std::filesystem::path& d
         dir / "examples" / "libs",
         dir / "examples" / "libs" / "stdlib",
     };
+}
+
+std::vector<std::string> moduleLexemeVariants(const std::string& moduleLexeme) {
+    std::vector<std::string> out;
+    if (moduleLexeme.rfind("stdlib.", 0) == 0 && moduleLexeme.size() > 7) {
+        out.push_back(moduleLexeme.substr(7));
+    }
+    out.push_back(moduleLexeme);
+    return out;
+}
+
+bool pathHasSegmentCaseInsensitive(const std::filesystem::path& path, const std::string& wanted) {
+    std::string w = wanted;
+    std::transform(w.begin(), w.end(), w.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    for (const auto& part : path) {
+        std::string s = part.string();
+        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (s == w) return true;
+    }
+    return false;
+}
+
+bool shouldRecursiveScanPrefix(const std::filesystem::path& prefix) {
+    return pathHasSegmentCaseInsensitive(prefix, "packages") ||
+           pathHasSegmentCaseInsensitive(prefix, "stdlib") ||
+           pathHasSegmentCaseInsensitive(prefix, "libs") ||
+           pathHasSegmentCaseInsensitive(prefix, "extra");
+}
+
+void appendUniquePath(std::vector<std::filesystem::path>& out, const std::filesystem::path& p) {
+    if (p.empty()) return;
+    std::error_code ec;
+    std::filesystem::path normalized = std::filesystem::weakly_canonical(std::filesystem::absolute(p), ec);
+    if (ec) {
+        ec.clear();
+        normalized = std::filesystem::absolute(p, ec);
+        if (ec) normalized = p;
+    }
+    normalized = normalized.lexically_normal();
+    for (const auto& existing : out) {
+        if (existing == normalized) return;
+    }
+    out.push_back(normalized);
+}
+
+std::vector<std::filesystem::path> splitEnvPathList(const char* value) {
+    std::vector<std::filesystem::path> out;
+    if (!value || !*value) return out;
+
+#ifdef _WIN32
+    constexpr char kPathSep = ';';
+#else
+    constexpr char kPathSep = ':';
+#endif
+    std::string raw(value);
+    size_t start = 0;
+    while (start <= raw.size()) {
+        const size_t end = raw.find(kPathSep, start);
+        const std::string token = trimInline(raw.substr(start, end == std::string::npos ? std::string::npos : end - start));
+        if (!token.empty()) appendUniquePath(out, std::filesystem::path(token));
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return out;
+}
+
+std::vector<std::filesystem::path> envImportPrefixes() {
+    std::vector<std::filesystem::path> out;
+
+    for (const auto& p : splitEnvPathList(std::getenv("EPP_PACKAGES"))) {
+        appendUniquePath(out, p);
+    }
+
+    const char* eppHome = std::getenv("EPP_HOME");
+    if (eppHome && *eppHome) {
+        const std::filesystem::path home = std::filesystem::path(eppHome);
+        appendUniquePath(out, home / "packages");
+        appendUniquePath(out, home / "lib" / "libs");
+        appendUniquePath(out, home / "lib" / "libs" / "stdlib");
+    }
+
+    for (const auto& p : splitEnvPathList(std::getenv("EPP_LIB"))) {
+        appendUniquePath(out, p);
+        appendUniquePath(out, p / "libs");
+        appendUniquePath(out, p / "libs" / "stdlib");
+    }
+    return out;
 }
 
 std::filesystem::path resolveImportPath(const std::string& moduleLexeme,
@@ -147,9 +239,9 @@ std::filesystem::path resolveImportPath(const std::string& moduleLexeme,
         if (std::filesystem::exists(knownPath)) return knownPath;
     }
 
+    const std::vector<std::string> moduleNames = moduleLexemeVariants(moduleLexeme);
     std::filesystem::path modulePath = moduleLexemeToPath(moduleLexeme);
     const bool explicitPath = hasPathHints(moduleLexeme) || modulePath.is_absolute();
-    const std::vector<std::filesystem::path> relativeCandidates = modulePathCandidates(modulePath);
 
     std::vector<std::filesystem::path> roots;
     if (!currentFilePath.empty()) {
@@ -160,52 +252,69 @@ std::filesystem::path resolveImportPath(const std::string& moduleLexeme,
     std::vector<std::filesystem::path> searchDirs;
     for (const auto& root : roots) {
         const auto ancestors = buildAncestorDirs(std::filesystem::absolute(root));
-        searchDirs.insert(searchDirs.end(), ancestors.begin(), ancestors.end());
+        for (const auto& ancestor : ancestors) appendUniquePath(searchDirs, ancestor);
     }
 
+    const std::vector<std::filesystem::path> envPrefixes = envImportPrefixes();
+    std::vector<std::filesystem::path> searchPrefixes;
+    for (const auto& p : envPrefixes) appendUniquePath(searchPrefixes, p);
     for (const auto& dir : searchDirs) {
-        if (explicitPath) {
+        for (const auto& p : importPrefixes(dir)) appendUniquePath(searchPrefixes, p);
+    }
+
+    if (explicitPath) {
+        const std::vector<std::filesystem::path> relativeCandidates = modulePathCandidates(modulePath);
+        for (const auto& dir : searchDirs) {
             for (const auto& rel : relativeCandidates) {
                 const std::filesystem::path candidate = std::filesystem::absolute(dir / rel);
                 if (std::filesystem::exists(candidate) && std::filesystem::is_regular_file(candidate)) return candidate;
             }
-            continue;
         }
-
-        for (const auto& prefix : importPrefixes(dir)) {
-            for (const auto& rel : relativeCandidates) {
+    } else {
+        for (const auto& moduleName : moduleNames) {
+            const std::vector<std::filesystem::path> relativeCandidates = modulePathCandidates(moduleLexemeToPath(moduleName));
+            for (const auto& prefix : searchPrefixes) {
+                for (const auto& rel : relativeCandidates) {
                 const std::filesystem::path candidate = std::filesystem::absolute(prefix / rel);
                 if (std::filesystem::exists(candidate) && std::filesystem::is_regular_file(candidate)) return candidate;
+                }
             }
         }
     }
 
     if (!explicitPath) {
         std::error_code ec;
-        for (const auto& dir : searchDirs) {
-            for (const auto& prefix : importPrefixes(dir)) {
-                if (!std::filesystem::exists(prefix, ec) || !std::filesystem::is_directory(prefix, ec)) continue;
-                for (std::filesystem::recursive_directory_iterator it(prefix,
-                                                                       std::filesystem::directory_options::skip_permission_denied,
-                                                                       ec),
-                     end;
-                     it != end;
-                     it.increment(ec)) {
-                    if (ec) {
-                        ec.clear();
-                        continue;
-                    }
-                    if (!it->is_regular_file(ec)) continue;
-                    const std::string fileName = it->path().filename().string();
-                    if (fileName != "__init__" && fileName != "__init__.epp" && fileName != ".__init__" &&
-                        fileName != ".__init__.epp") {
-                        continue;
-                    }
-                    if (readPackageIdFromModule(it->path()) == moduleLexeme) {
+        constexpr size_t kMaxScannedFiles = 20000;
+        size_t scannedFiles = 0;
+        for (const auto& prefix : searchPrefixes) {
+            if (!shouldRecursiveScanPrefix(prefix)) continue;
+            if (!std::filesystem::exists(prefix, ec) || !std::filesystem::is_directory(prefix, ec)) continue;
+            for (std::filesystem::recursive_directory_iterator it(prefix,
+                                                                   std::filesystem::directory_options::skip_permission_denied,
+                                                                   ec),
+                 end;
+                 it != end;
+                 it.increment(ec)) {
+                if (ec) {
+                    ec.clear();
+                    continue;
+                }
+                if (!it->is_regular_file(ec)) continue;
+                ++scannedFiles;
+                if (scannedFiles > kMaxScannedFiles) break;
+                const std::string fileName = it->path().filename().string();
+                if (fileName != "__init__" && fileName != "__init__.epp" && fileName != ".__init__" &&
+                    fileName != ".__init__.epp") {
+                    continue;
+                }
+                const std::string packageId = readPackageIdFromModule(it->path());
+                for (const auto& moduleName : moduleNames) {
+                    if (packageId == moduleName) {
                         return std::filesystem::absolute(it->path());
                     }
                 }
             }
+            if (scannedFiles > kMaxScannedFiles) break;
         }
     }
 
@@ -333,6 +442,195 @@ int g_nextHttpClientId = 1;
 std::unordered_map<int, HttpServerCtx> g_httpServers;
 std::unordered_map<int, HttpClientCtx> g_httpClients;
 std::mt19937_64 g_rng{std::random_device{}()};
+
+#ifdef _WIN32
+struct TkWindowCtx {
+    int id = 0;
+    HWND hwnd = nullptr;
+    int nextControlId = 1000;
+    std::unordered_map<int, int> buttonClicks;
+};
+
+std::mutex g_tkMutex;
+int g_nextTkWindowId = 1;
+std::unordered_map<int, TkWindowCtx> g_tkWindows;
+std::unordered_map<HWND, int> g_tkHwndToWindowId;
+bool g_tkClassRegistered = false;
+const wchar_t* kTkClassName = L"EppTkWindowClass";
+
+LRESULT CALLBACK tkWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_COMMAND: {
+            const int controlId = LOWORD(wParam);
+            std::lock_guard<std::mutex> lock(g_tkMutex);
+            auto winIt = g_tkHwndToWindowId.find(hwnd);
+            if (winIt != g_tkHwndToWindowId.end()) {
+                auto ctxIt = g_tkWindows.find(winIt->second);
+                if (ctxIt != g_tkWindows.end()) {
+                    ctxIt->second.buttonClicks[controlId] += 1;
+                }
+            }
+            return 0;
+        }
+        case WM_DESTROY: {
+            std::lock_guard<std::mutex> lock(g_tkMutex);
+            auto winIt = g_tkHwndToWindowId.find(hwnd);
+            if (winIt != g_tkHwndToWindowId.end()) {
+                g_tkWindows.erase(winIt->second);
+                g_tkHwndToWindowId.erase(winIt);
+            }
+            return 0;
+        }
+        default: break;
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+bool tkEnsureClass() {
+    if (g_tkClassRegistered) return true;
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(WNDCLASSEXW);
+    wc.lpfnWndProc = tkWindowProc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = kTkClassName;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    const ATOM atom = RegisterClassExW(&wc);
+    g_tkClassRegistered = atom != 0;
+    return g_tkClassRegistered;
+}
+
+std::wstring utf8ToWide(const std::string& s) {
+    if (s.empty()) return std::wstring();
+    const int need = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    if (need <= 0) return std::wstring(s.begin(), s.end());
+    std::wstring out(static_cast<size_t>(need), L'\0');
+    (void)MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &out[0], need);
+    if (!out.empty() && out.back() == L'\0') out.pop_back();
+    return out;
+}
+
+int tkCreateWindow(const std::string& title, int width, int height) {
+    if (!tkEnsureClass()) return -1;
+    const int w = std::max(240, width);
+    const int h = std::max(160, height);
+    const std::wstring wt = utf8ToWide(title.empty() ? "E++ App" : title);
+
+    HWND hwnd = CreateWindowExW(0,
+                                kTkClassName,
+                                wt.c_str(),
+                                WS_OVERLAPPEDWINDOW,
+                                CW_USEDEFAULT,
+                                CW_USEDEFAULT,
+                                w,
+                                h,
+                                nullptr,
+                                nullptr,
+                                GetModuleHandleW(nullptr),
+                                nullptr);
+    if (!hwnd) return -1;
+
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    const int id = g_nextTkWindowId++;
+    TkWindowCtx ctx{};
+    ctx.id = id;
+    ctx.hwnd = hwnd;
+    g_tkWindows[id] = ctx;
+    g_tkHwndToWindowId[hwnd] = id;
+    return id;
+}
+
+bool tkWindowShow(int id) {
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(id);
+    if (it == g_tkWindows.end() || !IsWindow(it->second.hwnd)) return false;
+    ShowWindow(it->second.hwnd, SW_SHOW);
+    UpdateWindow(it->second.hwnd);
+    return true;
+}
+
+bool tkWindowSetTitle(int id, const std::string& title) {
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(id);
+    if (it == g_tkWindows.end() || !IsWindow(it->second.hwnd)) return false;
+    const std::wstring wt = utf8ToWide(title);
+    return SetWindowTextW(it->second.hwnd, wt.c_str()) != 0;
+}
+
+int tkLabelAdd(int id, const std::string& text, int x, int y, int w, int h) {
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(id);
+    if (it == g_tkWindows.end() || !IsWindow(it->second.hwnd)) return -1;
+    const int controlId = it->second.nextControlId++;
+    const std::wstring wt = utf8ToWide(text);
+    HWND child = CreateWindowExW(0,
+                                 L"STATIC",
+                                 wt.c_str(),
+                                 WS_CHILD | WS_VISIBLE,
+                                 x,
+                                 y,
+                                 std::max(20, w),
+                                 std::max(16, h),
+                                 it->second.hwnd,
+                                 reinterpret_cast<HMENU>(static_cast<INT_PTR>(controlId)),
+                                 GetModuleHandleW(nullptr),
+                                 nullptr);
+    if (!child) return -1;
+    return controlId;
+}
+
+int tkButtonAdd(int id, const std::string& text, int x, int y, int w, int h) {
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(id);
+    if (it == g_tkWindows.end() || !IsWindow(it->second.hwnd)) return -1;
+    const int controlId = it->second.nextControlId++;
+    const std::wstring wt = utf8ToWide(text);
+    HWND child = CreateWindowExW(0,
+                                 L"BUTTON",
+                                 wt.c_str(),
+                                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                                 x,
+                                 y,
+                                 std::max(40, w),
+                                 std::max(20, h),
+                                 it->second.hwnd,
+                                 reinterpret_cast<HMENU>(static_cast<INT_PTR>(controlId)),
+                                 GetModuleHandleW(nullptr),
+                                 nullptr);
+    if (!child) return -1;
+    it->second.buttonClicks[controlId] = 0;
+    return controlId;
+}
+
+int tkButtonClicked(int id, int buttonId) {
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(id);
+    if (it == g_tkWindows.end()) return 0;
+    auto b = it->second.buttonClicks.find(buttonId);
+    if (b == it->second.buttonClicks.end()) return 0;
+    const int clicks = b->second;
+    b->second = 0;
+    return clicks;
+}
+
+int tkMainloop(int id) {
+    HWND target = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_tkMutex);
+        auto it = g_tkWindows.find(id);
+        if (it == g_tkWindows.end() || !IsWindow(it->second.hwnd)) return 0;
+        target = it->second.hwnd;
+    }
+    ShowWindow(target, SW_SHOW);
+    UpdateWindow(target);
+    MSG msg{};
+    while (IsWindow(target) && GetMessageW(&msg, nullptr, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+    return 1;
+}
+#endif
 
 void httpCloseSocket(HttpSocket s) {
 #ifdef _WIN32
@@ -587,6 +885,17 @@ std::string valueToString(const Value& value) {
         const auto klass = std::get<std::shared_ptr<ClassValue>>(value);
         return "<class " + klass->name + ">";
     }
+    if (std::holds_alternative<std::shared_ptr<ListValue>>(value)) {
+        const auto list = std::get<std::shared_ptr<ListValue>>(value);
+        std::ostringstream out;
+        out << "[";
+        for (size_t i = 0; i < list->items.size(); ++i) {
+            if (i > 0) out << ", ";
+            out << valueToString(list->items[i]);
+        }
+        out << "]";
+        return out.str();
+    }
     const auto instance = std::get<std::shared_ptr<InstanceValue>>(value);
     return "<" + instance->klass->name + " instance>";
 }
@@ -596,6 +905,10 @@ bool valueIsTruthy(const Value& value) {
     if (std::holds_alternative<bool>(value)) return std::get<bool>(value);
     if (std::holds_alternative<double>(value)) return std::get<double>(value) != 0.0;
     if (std::holds_alternative<std::string>(value)) return !std::get<std::string>(value).empty();
+    if (std::holds_alternative<std::shared_ptr<ListValue>>(value)) {
+        const auto list = std::get<std::shared_ptr<ListValue>>(value);
+        return list && !list->items.empty();
+    }
     return true;
 }
 
@@ -613,6 +926,17 @@ bool valueEquals(const Value& a, const Value& b) {
     }
     if (std::holds_alternative<std::shared_ptr<ClassValue>>(a)) {
         return std::get<std::shared_ptr<ClassValue>>(a) == std::get<std::shared_ptr<ClassValue>>(b);
+    }
+    if (std::holds_alternative<std::shared_ptr<ListValue>>(a)) {
+        const auto la = std::get<std::shared_ptr<ListValue>>(a);
+        const auto lb = std::get<std::shared_ptr<ListValue>>(b);
+        if (la == lb) return true;
+        if (!la || !lb) return false;
+        if (la->items.size() != lb->items.size()) return false;
+        for (size_t i = 0; i < la->items.size(); ++i) {
+            if (!valueEquals(la->items[i], lb->items[i])) return false;
+        }
+        return true;
     }
     return std::get<std::shared_ptr<InstanceValue>>(a) == std::get<std::shared_ptr<InstanceValue>>(b);
 }
@@ -830,7 +1154,7 @@ Interpreter::Interpreter() {
 #else
     defineNative("sys_platform", 0, [](const std::vector<Value>&) -> Value { return std::string("unknown"); });
 #endif
-    defineNative("sys_version", 0, [](const std::vector<Value>&) -> Value { return std::string("epp-std-0.2.3"); });
+    defineNative("sys_version", 0, [](const std::vector<Value>&) -> Value { return std::string("epp-std-0.2.4"); });
     defineNative("sys_executable", 0, [](const std::vector<Value>&) -> Value { return std::string("epp"); });
 
     defineNative("os_getcwd", 0, [](const std::vector<Value>&) -> Value { return std::filesystem::current_path().string(); });
@@ -885,7 +1209,83 @@ Interpreter::Interpreter() {
         std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
         return std::monostate{};
     });
-    defineNative("tkinter_available", 0, [](const std::vector<Value>&) -> Value { return false; });
+    defineNative("tkinter_available", 0, [](const std::vector<Value>&) -> Value {
+#ifdef _WIN32
+        return true;
+#else
+        return false;
+#endif
+    });
+    defineNative("tkinter_window_create", 3, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return static_cast<double>(tkCreateWindow(toStringOrDefault(a[0], "E++ App"),
+                                                  static_cast<int>(toNumberOrDefault(a[1], 640)),
+                                                  static_cast<int>(toNumberOrDefault(a[2], 420))));
+#else
+        (void)a;
+        return -1.0;
+#endif
+    });
+    defineNative("tkinter_window_set_title", 2, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return tkWindowSetTitle(static_cast<int>(toNumberOrDefault(a[0], -1)),
+                                toStringOrDefault(a[1], ""));
+#else
+        (void)a;
+        return false;
+#endif
+    });
+    defineNative("tkinter_window_show", 1, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return tkWindowShow(static_cast<int>(toNumberOrDefault(a[0], -1)));
+#else
+        (void)a;
+        return false;
+#endif
+    });
+    defineNative("tkinter_label_add", 6, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return static_cast<double>(tkLabelAdd(static_cast<int>(toNumberOrDefault(a[0], -1)),
+                                              toStringOrDefault(a[1], ""),
+                                              static_cast<int>(toNumberOrDefault(a[2], 12)),
+                                              static_cast<int>(toNumberOrDefault(a[3], 12)),
+                                              static_cast<int>(toNumberOrDefault(a[4], 220)),
+                                              static_cast<int>(toNumberOrDefault(a[5], 24))));
+#else
+        (void)a;
+        return -1.0;
+#endif
+    });
+    defineNative("tkinter_button_add", 6, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return static_cast<double>(tkButtonAdd(static_cast<int>(toNumberOrDefault(a[0], -1)),
+                                               toStringOrDefault(a[1], "Button"),
+                                               static_cast<int>(toNumberOrDefault(a[2], 12)),
+                                               static_cast<int>(toNumberOrDefault(a[3], 44)),
+                                               static_cast<int>(toNumberOrDefault(a[4], 120)),
+                                               static_cast<int>(toNumberOrDefault(a[5], 28))));
+#else
+        (void)a;
+        return -1.0;
+#endif
+    });
+    defineNative("tkinter_button_clicked", 2, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return static_cast<double>(tkButtonClicked(static_cast<int>(toNumberOrDefault(a[0], -1)),
+                                                   static_cast<int>(toNumberOrDefault(a[1], -1))));
+#else
+        (void)a;
+        return 0.0;
+#endif
+    });
+    defineNative("tkinter_mainloop", 1, [](const std::vector<Value>& a) -> Value {
+#ifdef _WIN32
+        return static_cast<double>(tkMainloop(static_cast<int>(toNumberOrDefault(a[0], -1))));
+#else
+        (void)a;
+        return false;
+#endif
+    });
     defineNative("sqlite3_open", 0, [](const std::vector<Value>&) -> Value {
         return std::string("sqlite3 no disponible en runtime actual");
     });
@@ -1235,7 +1635,29 @@ void Interpreter::executeImportToken(const Token& module, int line, int column) 
                        "Usa: import \"ruta/al/modulo.epp\", import paquete.modulo o from paquete import simbolo");
     }
 
-    std::filesystem::path resolved = resolveImportPath(module.lexeme, currentFilePath_, packageIdToModulePath_);
+    const std::filesystem::path contextDir = currentFilePath_.empty()
+                                                 ? std::filesystem::current_path()
+                                                 : std::filesystem::path(currentFilePath_).parent_path();
+    const std::string cacheKey = std::filesystem::absolute(contextDir).string() + "|" + module.lexeme;
+
+    std::filesystem::path resolved;
+    const auto missIt = importResolveMissCache_.find(cacheKey);
+    if (missIt != importResolveMissCache_.end()) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-061",
+                       line,
+                       column,
+                       "No se pudo abrir modulo importado previamente: " + module.lexeme,
+                       "Verifica el modulo o reinstala la libreria con DID.",
+                       module.lexeme);
+    }
+
+    const auto cached = importResolveCache_.find(cacheKey);
+    if (cached != importResolveCache_.end() && std::filesystem::exists(cached->second)) {
+        resolved = cached->second;
+    } else {
+        resolved = resolveImportPath(module.lexeme, currentFilePath_, packageIdToModulePath_);
+    }
     if (std::filesystem::exists(resolved) && std::filesystem::is_directory(resolved)) {
         const std::filesystem::path initNoExt = resolved / "__init__";
         const std::filesystem::path initEpp = resolved / "__init__.epp";
@@ -1256,6 +1678,7 @@ void Interpreter::executeImportToken(const Token& module, int line, int column) 
 
     std::ifstream in(resolved, std::ios::binary);
     if (!in) {
+        importResolveMissCache_.insert(cacheKey);
         throw EppError(ErrorPhase::Runtime,
                        "E-RUN-061",
                        line,
@@ -1267,6 +1690,8 @@ void Interpreter::executeImportToken(const Token& module, int line, int column) 
     std::ostringstream buffer;
     buffer << in.rdbuf();
     const std::string moduleSource = buffer.str();
+    importResolveCache_[cacheKey] = std::filesystem::absolute(resolved).string();
+    importResolveMissCache_.erase(cacheKey);
 
     importedModules_.insert(resolvedKey);
     const std::string previousFile = currentFilePath_;
@@ -1312,12 +1737,18 @@ Value Interpreter::evaluate(const ExprPtr& expr) {
             return evalUnary(*static_cast<const UnaryExpr*>(expr.get()));
         case Expr::Kind::Binary:
             return evalBinary(*static_cast<const BinaryExpr*>(expr.get()));
+        case Expr::Kind::ListLiteral:
+            return evalListLiteral(*static_cast<const ListLiteralExpr*>(expr.get()));
         case Expr::Kind::Call:
             return evalCall(*static_cast<const CallExpr*>(expr.get()));
         case Expr::Kind::Get:
             return evalGet(*static_cast<const GetExpr*>(expr.get()));
         case Expr::Kind::Set:
             return evalSet(*static_cast<const SetExpr*>(expr.get()));
+        case Expr::Kind::Index:
+            return evalIndex(*static_cast<const IndexExpr*>(expr.get()));
+        case Expr::Kind::IndexSet:
+            return evalIndexSet(*static_cast<const IndexSetExpr*>(expr.get()));
     }
     throw EppError(ErrorPhase::Runtime, "E-RUN-090", expr ? expr->line : 0, 1, "Expresion no soportada.");
 }
@@ -1531,6 +1962,106 @@ Value Interpreter::evalBinary(const BinaryExpr& expr) {
     throw EppError(ErrorPhase::Runtime, "E-RUN-023", expr.line, 1, "Operador binario invalido.");
 }
 
+Value Interpreter::evalListLiteral(const ListLiteralExpr& expr) {
+    auto list = std::make_shared<ListValue>();
+    list->items.reserve(expr.elements.size());
+    for (const auto& element : expr.elements) {
+        list->items.push_back(evaluate(element));
+    }
+    return list;
+}
+
+Value Interpreter::evalIndex(const IndexExpr& expr) {
+    Value object = evaluate(expr.object);
+    Value indexValue = evaluate(expr.index);
+
+    if (!std::holds_alternative<std::shared_ptr<ListValue>>(object)) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-063",
+                       expr.line,
+                       1,
+                       "Solo las listas soportan acceso por indice con '[]'.");
+    }
+    if (!std::holds_alternative<double>(indexValue)) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-064",
+                       expr.line,
+                       1,
+                       "El indice de lista debe ser numerico.");
+    }
+
+    const auto list = std::get<std::shared_ptr<ListValue>>(object);
+    if (!list) return std::monostate{};
+
+    const double raw = std::get<double>(indexValue);
+    if (std::floor(raw) != raw) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-064",
+                       expr.line,
+                       1,
+                       "El indice de lista debe ser entero.");
+    }
+
+    long long idx = static_cast<long long>(raw);
+    const long long size = static_cast<long long>(list->items.size());
+    if (idx < 0) idx += size;
+    if (idx < 0 || idx >= size) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-065",
+                       expr.line,
+                       1,
+                       "Indice fuera de rango en lista.");
+    }
+    return list->items[static_cast<size_t>(idx)];
+}
+
+Value Interpreter::evalIndexSet(const IndexSetExpr& expr) {
+    Value object = evaluate(expr.object);
+    Value indexValue = evaluate(expr.index);
+
+    if (!std::holds_alternative<std::shared_ptr<ListValue>>(object)) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-066",
+                       expr.line,
+                       1,
+                       "Solo las listas soportan asignacion por indice con '[]'.");
+    }
+    if (!std::holds_alternative<double>(indexValue)) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-064",
+                       expr.line,
+                       1,
+                       "El indice de lista debe ser numerico.");
+    }
+
+    const auto list = std::get<std::shared_ptr<ListValue>>(object);
+    if (!list) return std::monostate{};
+
+    const double raw = std::get<double>(indexValue);
+    if (std::floor(raw) != raw) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-064",
+                       expr.line,
+                       1,
+                       "El indice de lista debe ser entero.");
+    }
+
+    long long idx = static_cast<long long>(raw);
+    const long long size = static_cast<long long>(list->items.size());
+    if (idx < 0) idx += size;
+    if (idx < 0 || idx >= size) {
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-065",
+                       expr.line,
+                       1,
+                       "Indice fuera de rango en lista.");
+    }
+
+    Value assigned = evaluate(expr.value);
+    list->items[static_cast<size_t>(idx)] = assigned;
+    return assigned;
+}
+
 Value Interpreter::evalCall(const CallExpr& expr) {
     Value callee = evaluate(expr.callee);
 
@@ -1669,12 +2200,104 @@ Value Interpreter::callFunction(const std::shared_ptr<Function>& fn,
 
 Value Interpreter::evalGet(const GetExpr& expr) {
     Value object = evaluate(expr.object);
+    if (std::holds_alternative<std::shared_ptr<ListValue>>(object)) {
+        const auto list = std::get<std::shared_ptr<ListValue>>(object);
+        if (!list) return std::monostate{};
+
+        if (expr.name.lexeme == "append") {
+            auto fn = std::make_shared<NativeFunction>();
+            fn->name = "list.append";
+            fn->arity = 1;
+            fn->fn = [list](const std::vector<Value>& args) -> Value {
+                list->items.push_back(args[0]);
+                return std::monostate{};
+            };
+            return fn;
+        }
+        if (expr.name.lexeme == "len") {
+            auto fn = std::make_shared<NativeFunction>();
+            fn->name = "list.len";
+            fn->arity = 0;
+            fn->fn = [list](const std::vector<Value>&) -> Value {
+                return static_cast<double>(list->items.size());
+            };
+            return fn;
+        }
+        if (expr.name.lexeme == "clear") {
+            auto fn = std::make_shared<NativeFunction>();
+            fn->name = "list.clear";
+            fn->arity = 0;
+            fn->fn = [list](const std::vector<Value>&) -> Value {
+                list->items.clear();
+                return std::monostate{};
+            };
+            return fn;
+        }
+        if (expr.name.lexeme == "pop") {
+            auto fn = std::make_shared<NativeFunction>();
+            fn->name = "list.pop";
+            fn->arity = -1;
+            fn->fn = [list](const std::vector<Value>& args) -> Value {
+                if (list->items.empty()) {
+                    throw EppError(ErrorPhase::Runtime,
+                                   "E-RUN-067",
+                                   0,
+                                   1,
+                                   "No se puede hacer pop() de una lista vacia.");
+                }
+
+                long long idx = static_cast<long long>(list->items.size()) - 1;
+                if (!args.empty()) {
+                    if (!std::holds_alternative<double>(args[0])) {
+                        throw EppError(ErrorPhase::Runtime,
+                                       "E-RUN-064",
+                                       0,
+                                       1,
+                                       "El indice de list.pop() debe ser numerico.");
+                    }
+                    const double raw = std::get<double>(args[0]);
+                    if (std::floor(raw) != raw) {
+                        throw EppError(ErrorPhase::Runtime,
+                                       "E-RUN-064",
+                                       0,
+                                       1,
+                                       "El indice de list.pop() debe ser entero.");
+                    }
+                    idx = static_cast<long long>(raw);
+                    if (idx < 0) idx += static_cast<long long>(list->items.size());
+                }
+
+                if (idx < 0 || idx >= static_cast<long long>(list->items.size())) {
+                    throw EppError(ErrorPhase::Runtime,
+                                   "E-RUN-065",
+                                   0,
+                                   1,
+                                   "Indice fuera de rango en list.pop().");
+                }
+
+                const size_t pos = static_cast<size_t>(idx);
+                Value out = list->items[pos];
+                list->items.erase(list->items.begin() + static_cast<std::ptrdiff_t>(pos));
+                return out;
+            };
+            return fn;
+        }
+
+        throw EppError(ErrorPhase::Runtime,
+                       "E-RUN-051",
+                       expr.line,
+                       1,
+                       "Propiedad/metodo de lista no encontrado: '" + expr.name.lexeme + "'.",
+                       "Metodos soportados: append(valor), pop([indice]), len(), clear().",
+                       expr.name.lexeme);
+    }
+
     if (!std::holds_alternative<std::shared_ptr<InstanceValue>>(object)) {
         throw EppError(ErrorPhase::Runtime,
                        "E-RUN-050",
                        expr.line,
                        1,
-                       "Solo las instancias tienen propiedades.");
+                       "Solo las instancias o listas tienen propiedades.");
     }
 
     auto instance = std::get<std::shared_ptr<InstanceValue>>(object);

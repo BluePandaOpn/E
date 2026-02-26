@@ -7,8 +7,9 @@ Soporta paquetes con `__init__` y `.__init__` (sin extension) para imports estil
 ## Estado actual
 
 - CLI funcional (`run`, `check`, `compile`, `doctor`, version manager).
-- Gestor `opn` para entorno virtual del lenguaje e instalacion de librerias desde GitHub.
+- Gestor `did` para entorno virtual del lenguaje e instalacion de librerias desde GitHub.
 - Lexer + Parser + AST + Interpreter.
+- Listas nativas estilo Python (`[]`, indexado y metodos base).
 - Compilacion AOT a ejecutable nativo.
 - Stdlib modular en `../lib/libs/stdlib`.
 
@@ -39,22 +40,23 @@ Config.bat shell
 
 ```bash
 build/Release/epp.exe doctor
-build/Release/epp.exe run ../lib/libs/stdlib/time.epp
-build/Release/epp.exe check ../lib/libs/stdlib/collections.epp
+build/Release/epp.exe run ../lib/libs/stdlib/time/__init__.epp
+build/Release/epp.exe check ../lib/libs/stdlib/collections/__init__.epp
 build/Release/epp.exe -V
 ```
 
-## Uso rapido de OPN
+## Uso rapido de DID
 
 ```bash
-build/Release/opn.exe install
-build/Release/opn.exe install nombre_libreria
-build/Release/opn.exe install nombre_libreria --repo owner/repositorio
-build/Release/opn.exe list
-build/Release/opn.exe doctor
+build/Release/did.exe install
+build/Release/did.exe install nombre_libreria
+build/Release/did.exe install nombre_libreria --repo owner/repositorio
+build/Release/did.exe list
+build/Release/did.exe doctor
 ```
 
 ## Publicacion
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CHANGELOG.md](CHANGELOG.md)
+- [docs/README.md](docs/README.md)

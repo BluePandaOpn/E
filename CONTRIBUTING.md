@@ -16,8 +16,8 @@ Gracias por contribuir a E++.
 cmake -S . -B build
 cmake --build build --config Release
 build/Release/epp.exe doctor
-build/Release/epp.exe check ../lib/libs/stdlib/collections.epp
-build/Release/epp.exe check ../lib/libs/stdlib/time.epp
+build/Release/epp.exe check ../lib/libs/stdlib/collections/__init__.epp
+build/Release/epp.exe check ../lib/libs/stdlib/time/__init__.epp
 ```
 
 ## Convenciones

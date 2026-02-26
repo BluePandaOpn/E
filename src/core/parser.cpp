@@ -12,6 +12,8 @@ std::string tokenTypeLabel(TokenType type) {
         case TokenType::RightParen: return "')'";
         case TokenType::LeftBrace: return "'{'";
         case TokenType::RightBrace: return "'}'";
+        case TokenType::LeftBracket: return "'['";
+        case TokenType::RightBracket: return "']'";
         case TokenType::Comma: return "','";
         case TokenType::Colon: return "':'";
         case TokenType::Dot: return "'.'";
@@ -297,6 +299,14 @@ ExprPtr Parser::assignment() {
             setExpr->value = value;
             return setExpr;
         }
+        if (auto idxExpr = std::dynamic_pointer_cast<IndexExpr>(expr)) {
+            auto setIdxExpr = std::make_shared<IndexSetExpr>();
+            setIdxExpr->line = idxExpr->line;
+            setIdxExpr->object = idxExpr->object;
+            setIdxExpr->index = idxExpr->index;
+            setIdxExpr->value = value;
+            return setIdxExpr;
+        }
 
         throw EppError(ErrorPhase::Parser,
                        "E-PARSE-004",
@@ -433,6 +443,13 @@ ExprPtr Parser::call() {
             getExpr->object = expr;
             getExpr->name = name;
             expr = getExpr;
+        } else if (match({TokenType::LeftBracket})) {
+            auto indexExpr = std::make_shared<IndexExpr>();
+            indexExpr->line = previous().line;
+            indexExpr->object = expr;
+            indexExpr->index = expression();
+            consume(TokenType::RightBracket, "Se esperaba ']'.");
+            expr = indexExpr;
         } else {
             break;
         }
@@ -457,6 +474,17 @@ ExprPtr Parser::primary() {
         ExprPtr expr = expression();
         consume(TokenType::RightParen, "Se esperaba ')'.");
         return expr;
+    }
+    if (match({TokenType::LeftBracket})) {
+        auto listExpr = std::make_shared<ListLiteralExpr>();
+        listExpr->line = previous().line;
+        if (!check(TokenType::RightBracket)) {
+            do {
+                listExpr->elements.push_back(expression());
+            } while (match({TokenType::Comma}));
+        }
+        consume(TokenType::RightBracket, "Se esperaba ']'.");
+        return listExpr;
     }
     const Token& t = peek();
     throw EppError(ErrorPhase::Parser,

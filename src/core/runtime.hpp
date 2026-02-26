@@ -14,6 +14,7 @@ struct Function;
 struct NativeFunction;
 struct ClassValue;
 struct InstanceValue;
+struct ListValue;
 class Environment;
 class Interpreter;
 
@@ -24,7 +25,8 @@ using Value = std::variant<std::monostate,
                            std::shared_ptr<Function>,
                            std::shared_ptr<NativeFunction>,
                            std::shared_ptr<ClassValue>,
-                           std::shared_ptr<InstanceValue>>;
+                           std::shared_ptr<InstanceValue>,
+                           std::shared_ptr<ListValue>>;
 
 std::string valueToString(const Value& value);
 bool valueIsTruthy(const Value& value);
@@ -70,6 +72,10 @@ struct InstanceValue {
     std::unordered_map<std::string, Value> fields;
 };
 
+struct ListValue {
+    std::vector<Value> items;
+};
+
 class Interpreter {
 public:
     Interpreter();
@@ -88,6 +94,9 @@ private:
     Value callFunction(const std::shared_ptr<Function>& fn, const Value* args, size_t argCount, int line);
     Value evalGet(const GetExpr& expr);
     Value evalSet(const SetExpr& expr);
+    Value evalListLiteral(const ListLiteralExpr& expr);
+    Value evalIndex(const IndexExpr& expr);
+    Value evalIndexSet(const IndexSetExpr& expr);
     std::shared_ptr<Function> bindThis(const std::shared_ptr<Function>& method, const std::shared_ptr<InstanceValue>& instance);
     void executeImportToken(const Token& module, int line, int column);
 
@@ -97,6 +106,8 @@ private:
     std::shared_ptr<Environment> env_;
     std::string currentFilePath_;
     std::unordered_set<std::string> importedModules_;
+    std::unordered_map<std::string, std::string> importResolveCache_;
+    std::unordered_set<std::string> importResolveMissCache_;
     std::unordered_map<std::string, std::string> importedModulePackageIds_;
     std::unordered_map<std::string, std::string> packageIdToModulePath_;
     std::unordered_map<std::string, int> loadedLibRegistryCount_;
