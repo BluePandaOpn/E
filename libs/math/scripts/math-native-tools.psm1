@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 function Test-MathLibLayout {
     [CmdletBinding()]
@@ -26,7 +26,7 @@ function Test-MathLibLayout {
 
     $missing = $result | Where-Object { -not $_.Exists }
     if ($missing) {
-        Write-Warning "Faltan archivos requeridos para stdlib.math."
+        Write-Warning "Faltan archivos requeridos para math."
     } else {
         Write-Output "Layout OK: estructura base valida."
     }
@@ -63,3 +63,4 @@ extern "C" {
 }
 
 Export-ModuleMember -Function Test-MathLibLayout, New-MathNativeBridgeStub
+

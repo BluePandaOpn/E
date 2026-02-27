@@ -1,4 +1,4 @@
-# API de stdlib.math
+﻿# API de math
 
 ## Constantes
 - `pi`
@@ -49,3 +49,4 @@
 ## Notas
 - `radians` y `degrees` ayudan a unificar API trigonometrica.
 - `is_close` evita errores comunes de comparacion exacta en flotantes.
+

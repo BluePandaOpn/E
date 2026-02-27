@@ -1,4 +1,4 @@
-# stdlib.math
+﻿# math
 
 Libreria matematica para E++ con base modular (`src/`), documentacion completa (`docs/`) y utilidades de integracion (`scripts/`).
 
@@ -20,7 +20,10 @@ math/
 
 ## Uso rapido
 ```epp
-import stdlib.math
+import math
+
+var r = 3
+var area = pi * pow(r, 2)
 ```
 
 ## Entrada principal
@@ -42,19 +45,21 @@ import stdlib.math
 ## Ejemplo integrado
 ### 1) Codigo E++
 ```epp
-import stdlib.math
+import math
 
 func main() {
     var radio = 5
-    var area = stdlib.math.pi * stdlib.math.pow(radio, 2)
-    var diag = stdlib.math.hypot2(3, 4)
-    var ok = stdlib.math.is_close(diag, 5, 0.000001, 0.000001)
+    var area = pi * pow(radio, 2)
+    var diag = hypot2(3, 4)
+    var ok = is_close(diag, 5, 0.000001, 0.000001)
 
     print("area = " + area)
     print("diag = " + diag)
     print("is_close = " + ok)
 }
 ```
+
+Nota: `import math` carga simbolos en el scope actual; no crea la variable `math`.
 
 ### 2) Generar stub C++ del bridge nativo
 ```powershell
@@ -66,4 +71,5 @@ New-MathNativeBridgeStub -OutFile .\math_bridge_stub.cpp
 ```powershell
 Test-MathLibLayout
 ```
+
 

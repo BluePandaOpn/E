@@ -1,4 +1,4 @@
-# Integracion C++ para stdlib.math
+﻿# Integracion C++ para math
 
 La libreria usa funciones del runtime nativo mediante `_native`.
 
@@ -30,3 +30,4 @@ double math_pow(double a, double b);
 
 ## Verificacion
 Usa el modulo PowerShell `scripts/math-native-tools.psm1` para validar estructura y generar un archivo base para el bridge C++.
+

@@ -1,2 +1,3 @@
-// Entrada principal interna de stdlib.math
+﻿// Entrada principal interna de math
 from math.src.math import *
+

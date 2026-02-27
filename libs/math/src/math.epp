@@ -123,7 +123,7 @@ func normalize_range(value, low, high) {
 }
 
 func module_name() {
-    return "stdlib.math"
+    return "math"
 }
 
 func module_version() {
