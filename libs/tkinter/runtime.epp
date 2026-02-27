@@ -1,11 +1,4 @@
-@package "stdlib.tkinter.runtime"
+@package "tkinter.runtime"
 
-import _native
-
-func native_runtime() {
-    return _native.runtime_name()
-}
-
-func native_builtin_mode() {
-    return _native.builtin_mode()
-}
+// Wrapper de compatibilidad. Implementacion real: src/epp/runtime.epp
+from tkinter.src.epp.runtime import *

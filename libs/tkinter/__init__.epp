@@ -1,6 +1,7 @@
-@package "stdlib.tkinter"
+@package "tkinter"
 
 // Fachada publica modular de tkinter.
 from tkinter.core import *
 from tkinter.helpers import *
 from tkinter.runtime import *
+from tkinter.tk import tk

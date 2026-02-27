@@ -3,59 +3,29 @@
 Paquete: `stdlib.http`
 
 ## Objetivo
-Libreria estandar para E++ ubicada en `lib/libs/http`.
+Libreria HTTP para E++ con estructura fusionada EPP + C++.
 
-## Integracion C++
-Si. Esta libreria usa `_native` (backend C++ del runtime).
+## Estructura
+- `__init__.epp`: entrada del paquete.
+- `http.epp`: entrypoint y compatibilidad.
+- `src/http_core.epp`: API principal en EPP.
+- `src/native/http_bridge.cpp`: puente nativo C++ (integracion runtime).
+- `scripts/http-tools.psm1`: checks y empaquetado.
+- `docs/`: documentacion tecnica (`ARCHITECTURE.md`, `API.md`).
 
-## API publica (funciones)
-- `init(...)`
-- `header(...)`
-- `send(...)`
-- `text(...)`
-- `json(...)`
-- `html(...)`
-- `send_status(...)`
-- `close(...)`
-- `not_found(...)`
-- `bad_request(...)`
-- `listen(...)`
-- `ok(...)`
-- `accept_client(...)`
-- `accept(...)`
-- `reopen(...)`
-- `server(...)`
-- `create_server(...)`
-- `request(...)`
-- `response(...)`
-- `get(...)`
-- `serve_once(...)`
-- `serve_once_status(...)`
-- `serve(...)`
-- `serve_status(...)`
-- `serve_forever(...)`
-- `serve_forever_status(...)`
-- `text_ok(...)`
-- `json_ok(...)`
-- `html_ok(...)`
-- `native_runtime(...)`
-- `native_builtin_mode(...)`
-
-## Clases
-- `HTTPRequest`
-- `HTTPResponse`
-- `HTTPServer`
+## Integracion 50/50
+- Capa EPP: modelos HTTP, wrappers y helpers.
+- Capa C++: inicializacion/extension nativa para backend runtime.
 
 ## Uso rapido
 ```epp
 import stdlib.http
 ```
 
-## Archivos
-- `__init__.epp`: entrada del paquete.
-- `*.epp`: implementacion adicional de la libreria.
-
-## Notas
-- Para diagnosticar carga de librerias usa: `epp doctor --imports`.
-- Para reparar paquetes DID con estructura invalida usa: `did repair`.
+## Script PowerShell
+```powershell
+Import-Module .\scripts\http-tools.psm1
+Invoke-HttpLibCheck
+Invoke-HttpLibPackage
+```
 

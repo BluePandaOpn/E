@@ -1,0 +1,4 @@
+@package "tkinter.tk"
+
+// Exporta el namespace corto `tk`.
+from tkinter.src.epp.tk import *

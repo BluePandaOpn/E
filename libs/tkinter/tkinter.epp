@@ -1,7 +1,5 @@
-@package "stdlib.tkinter"
+@package "tkinter"
 
 // Alias de compatibilidad para quienes importan este archivo.
-from stdlib.tkinter.core import *
-from stdlib.tkinter.helpers import *
-from stdlib.tkinter.runtime import *
+from tkinter import *
 

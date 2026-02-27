@@ -1,0 +1,5 @@
+@package "tkinter.src.epp.tk"
+
+from tkinter.src.epp.helpers import TkNamespace
+
+var tk = TkNamespace()
