@@ -1,3 +1,3 @@
 @package "stdlib.math"
 
-from math.math import *
+from math.src.main import *

@@ -1,0 +1,2 @@
+// Entrada principal interna de stdlib.math
+from math.src.math import *
