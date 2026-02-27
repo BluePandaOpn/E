@@ -1,0 +1,25 @@
+// SCSS de ejemplo para ventana tkinter (aplica via backend nativo)
+$bg: #111827;
+$fg: #e5e7eb;
+$accent: #22c55e;
+$panel: #1f2937;
+
+window {
+  background: $bg;
+  color: $fg;
+}
+
+label {
+  color: $fg;
+}
+
+entry {
+  background: $panel;
+  color: $fg;
+  border: 1px solid $accent;
+}
+
+button {
+  background: $accent;
+  color: #052e16;
+}

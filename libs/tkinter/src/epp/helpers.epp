@@ -116,6 +116,18 @@ class TkNamespace {
         return ui.button(text, x, y, w, h)
     }
 
+    func entry(ui, text, x, y, w, h) {
+        return ui.entry(text, x, y, w, h)
+    }
+
+    func Entry(ui, text, x, y, w, h) {
+        return ui.entry(text, x, y, w, h)
+    }
+
+    func input(ui, text, x, y, w, h) {
+        return ui.entry(text, x, y, w, h)
+    }
+
     func click(ui, button_id) {
         return ui.button_clicked(button_id)
     }
@@ -132,6 +144,26 @@ class TkNamespace {
         return ui.button_line(text)
     }
 
+    func entry_line(ui, text) {
+        return ui.entry_line(text)
+    }
+
+    func get(ui, widget_id) {
+        return ui.get_text(widget_id)
+    }
+
+    func set(ui, widget_id, text) {
+        return ui.set_text(widget_id, text)
+    }
+
+    func get_value(ui, widget_id) {
+        return ui.get_text(widget_id)
+    }
+
+    func set_value(ui, widget_id, text) {
+        return ui.set_text(widget_id, text)
+    }
+
     func show(ui) {
         return ui.show()
     }
@@ -146,6 +178,22 @@ class TkNamespace {
 
     func title(ui, text) {
         return ui.title(text)
+    }
+
+    func bg(ui, color_hex) {
+        return ui.set_bg(color_hex)
+    }
+
+    func fg(ui, color_hex) {
+        return ui.set_fg(color_hex)
+    }
+
+    func accent(ui, color_hex) {
+        return ui.set_accent(color_hex)
+    }
+
+    func apply_scss(ui, path) {
+        return ui.apply_scss(path)
     }
 
     func runtime() {

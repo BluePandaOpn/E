@@ -18,6 +18,7 @@ var ui = tk.Tk()
 tk.title(ui, "Mi app")
 if tk.geometry(ui, 720, 480) {
     tk.Label(ui, "Hola", 16, 16, 200, 24)
+    tk.Entry(ui, "", 16, 48, 260, 28)
     tk.Button(ui, "Cerrar", 16, 52, 120, 28)
     tk.mainloop(ui)
 }
@@ -43,3 +44,8 @@ Modulo: `scripts/tk-admin.psm1`
 Funciones:
 - `Get-TkinterTree`
 - `Test-TkinterLayout`
+
+## Nuevas capacidades
+- Entrada/salida de datos: `tk.Entry`, `tk.get`, `tk.set`
+- Colores base: `tk.bg`, `tk.fg`, `tk.accent`
+- Estilo SCSS: `tk.apply_scss(ui, "ruta.scss")`

@@ -98,6 +98,21 @@ class TkApp {
         return this.button(text, x, y, w, h)
     }
 
+    func entry(text, x, y, w, h) {
+        if this.window_id <= 0 {
+            return -1
+        }
+        return int(tkinter_entry_add(this.window_id, text, x, y, w, h))
+    }
+
+    func Entry(text, x, y, w, h) {
+        return this.entry(text, x, y, w, h)
+    }
+
+    func input(text, x, y, w, h) {
+        return this.entry(text, x, y, w, h)
+    }
+
     func button_clicked(button_id) {
         if this.window_id <= 0 {
             return 0
@@ -111,6 +126,56 @@ class TkApp {
 
     func click(button_id) {
         return this.button_clicked(button_id)
+    }
+
+    func set_text(widget_id, text) {
+        if this.window_id <= 0 {
+            return false
+        }
+        return tkinter_widget_set_text(this.window_id, widget_id, text)
+    }
+
+    func get_text(widget_id) {
+        if this.window_id <= 0 {
+            return ""
+        }
+        return tkinter_widget_get_text(this.window_id, widget_id)
+    }
+
+    func set_value(widget_id, text) {
+        return this.set_text(widget_id, text)
+    }
+
+    func get_value(widget_id) {
+        return this.get_text(widget_id)
+    }
+
+    func set_bg(color_hex) {
+        if this.window_id <= 0 {
+            return false
+        }
+        return tkinter_window_set_bg(this.window_id, color_hex)
+    }
+
+    func set_fg(color_hex) {
+        if this.window_id <= 0 {
+            return false
+        }
+        return tkinter_window_set_fg(this.window_id, color_hex)
+    }
+
+    func set_accent(color_hex) {
+        if this.window_id <= 0 {
+            return false
+        }
+        return tkinter_window_set_accent(this.window_id, color_hex)
+    }
+
+    func apply_scss(path) {
+        if this.window_id <= 0 {
+            return false
+        }
+        return tkinter_window_apply_scss(this.window_id, path)
     }
 
     func show() {
@@ -138,6 +203,12 @@ class TkApp {
 
     func button_line(text) {
         var id = this.button(text, 16, this.cursor_y, 160, 28)
+        this.cursor_y = this.cursor_y + this.row_h
+        return id
+    }
+
+    func entry_line(text) {
+        var id = this.entry(text, 16, this.cursor_y, this.default_w - 32, 28)
         this.cursor_y = this.cursor_y + this.row_h
         return id
     }

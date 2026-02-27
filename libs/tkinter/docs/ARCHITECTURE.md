@@ -23,11 +23,12 @@ Separar claramente:
    - `runtime.epp`
 2. Implementacion E++ (`src/epp`):
    - `core.epp`: clase `TkApp` y operaciones base
-   - `helpers.epp`: helpers y `TkNamespace`
+   - `helpers.epp`: helpers, `TkNamespace`, API tipo Tk de Python
    - `runtime.epp`: metadata del runtime
    - `tk.epp`: exporta `var tk = TkNamespace()`
 3. Nativo (`src/cpp`):
    - encabezado + stub de funciones `tkinter_*`
+   - widgets de entrada (`entry`), I/O de texto y estilos (`bg/fg/accent/scss`)
 
 ## Import recomendado
 ```epp
