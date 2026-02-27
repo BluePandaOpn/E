@@ -1,5 +1,8 @@
 @package "tkinter"
 
 // Alias de compatibilidad para quienes importan este archivo.
-from tkinter import *
+from tkinter.core import *
+from tkinter.helpers import *
+from tkinter.runtime import *
+from tkinter.tk import tk
 
