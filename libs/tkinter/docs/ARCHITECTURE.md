@@ -27,8 +27,20 @@ Separar claramente:
    - `runtime.epp`: metadata del runtime
    - `tk.epp`: exporta `var tk = TkNamespace()`
 3. Nativo (`src/cpp`):
-   - encabezado + stub de funciones `tkinter_*`
-   - widgets de entrada (`entry`), I/O de texto y estilos (`bg/fg/accent/scss`)
+   - `tk_native_bridge.hpp`: contrato de funciones `tkinter_*`
+   - `tk_native_bridge.cpp`: backend C++ en memoria con:
+     - ventana + widgets (`Label/Button/Entry`)
+     - lectura/escritura de texto (`get/set`)
+     - tema de color (`bg/fg/accent`)
+     - parser SCSS simple (variables `$x` + bloques `window/button`)
+     - ciclo de interaccion basico por consola (`mainloop`)
+
+## Patron recomendado
+1. Crear pantalla: `tk.screen(...)`
+2. Construir formulario con `input_line` y `output_line`
+3. Aplicar tema: `theme(...)` y opcional `apply_scss(...)`
+4. Ejecutar `mainloop`
+5. Consultar accion con `clicked(...)`
 
 ## Import recomendado
 ```epp

@@ -1,0 +1,36 @@
+import tkinter
+
+func main() {
+    var root = tk.screen("Panel con input/print", 860, 520)
+    root.title("Panel con input/print")
+
+    if not root.ensure(860, 520) {
+        print("tkinter no disponible en este runtime")
+        return
+    }
+
+    tk.theme(root, "#0f172a", "#e2e8f0", "#38bdf8")
+    tk.apply_scss(root, "libs/tkinter/test/theme.scss")
+
+    tk.print_line(root, "PANEL DE CAPTURA DE DATOS")
+    var inp_name = tk.input_line(root, "Nombre:", "Admin")
+    var inp_note = tk.input_line(root, "Nota:", "Semana productiva")
+    var out = tk.output_line(root, "Salida: listo")
+    root.line_break(8)
+    var btn_process = tk.button_line_ex(root, "Procesar", 180)
+    var btn_close = tk.button_line_ex(root, "Cerrar", 180)
+
+    tk.mainloop(root)
+
+    if tk.clicked(root, btn_process) {
+        var name = tk.get_input(root, inp_name)
+        var note = tk.get_input(root, inp_note)
+        tk.set_output(root, out, "Salida: hola " + name + " | " + note)
+        print("Salida: hola " + name + " | " + note)
+    }
+    if tk.clicked(root, btn_close) {
+        print("Salida: cerrar app")
+    }
+}
+
+main()

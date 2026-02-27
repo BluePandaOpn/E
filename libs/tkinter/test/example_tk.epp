@@ -1,48 +1,25 @@
 import tkinter
 
 func main() {
-    var root = tk.Tk()
-    tk.title(root, "Formulario Tk (E++)")
+    var root = tk.screen("Panel de tareas (E++)", 760, 460)
 
     if not root.ensure(760, 460) {
         print("tkinter no disponible en este runtime")
         return
     }
 
-    // Sistema de colores
-    tk.bg(root, "#111827")
-    tk.fg(root, "#E5E7EB")
-    tk.accent(root, "#22C55E")
-    tk.apply_scss(root, "test/theme.scss")
-
-    // Salida (label)
-    var title_lbl = tk.Label(root, "Demo tipo Tkinter Python", 20, 18, 320, 26)
-    var output_lbl = tk.Label(root, "Salida: escribe tu nombre", 20, 56, 520, 26)
-
-    // Entrada de datos
-    var name_lbl = tk.Label(root, "Nombre:", 20, 110, 120, 24)
-    var name_in = tk.Entry(root, "", 150, 108, 260, 28)
-
-    // Botones
-    var run_btn = tk.Button(root, "Procesar", 20, 152, 120, 30)
-    var clear_btn = tk.Button(root, "Limpiar", 150, 152, 120, 30)
-
-    // Inicializa contenido en widgets para mostrar I/O en pantalla
-    tk.set(root, name_in, "Fox")
-    tk.set(root, output_lbl, "Salida: listo para procesar")
-
-    // Nota: al integrar el backend nativo real, evalua clicked(...) en tu loop de eventos.
-    if tk.clicked(root, run_btn) {
-        var name = tk.get(root, name_in)
-        tk.set(root, output_lbl, "Salida: hola " + name)
-    }
-
-    if tk.clicked(root, clear_btn) {
-        tk.set(root, name_in, "")
-        tk.set(root, output_lbl, "Salida: limpio")
-    }
+    tk.print_line(root, "Panel de tareas del dia")
+    tk.print_line(root, "Proyecto: Organizar semana")
+    var inp = tk.input_line(root, "Usuario:", "Admin")
+    var out = tk.output_line(root, "Salida: listo")
+    var btn = tk.button_line(root, "Procesar")
 
     tk.mainloop(root)
+
+    if tk.clicked(root, btn) {
+        tk.set_output(root, out, "Salida: avance marcado por " + tk.get(root, inp))
+        print(tk.get(root, out))
+    }
 }
 
 main()

@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -140,6 +141,32 @@ int g_nextHttpServerId = 1;
 int g_nextHttpClientId = 1;
 std::unordered_map<int, HttpServerCtx> g_httpServers;
 std::unordered_map<int, HttpClientCtx> g_httpClients;
+
+enum class TkWidgetType { Label, Button, Entry };
+
+struct TkWidgetCtx {
+    int id = -1;
+    TkWidgetType type = TkWidgetType::Label;
+    std::string text;
+};
+
+struct TkWindowCtx {
+    int id = -1;
+    std::string title;
+    int width = 640;
+    int height = 420;
+    std::string bg = "#0f172a";
+    std::string fg = "#e2e8f0";
+    std::string accent = "#38bdf8";
+    int nextWidgetId = 1;
+    int lastClickedButton = 0;
+    std::unordered_map<int, TkWidgetCtx> widgets;
+    std::vector<int> widgetOrder;
+};
+
+std::mutex g_tkMutex;
+int g_nextTkWindowId = 1;
+std::unordered_map<int, TkWindowCtx> g_tkWindows;
 
 std::string toLowerCopy(std::string s) {
     for (char& c : s) {
@@ -499,6 +526,80 @@ bool colorConsoleInit() {
 #else
     return colorStdoutIsConsole();
 #endif
+}
+
+void tkTryApplyScss(TkWindowCtx& w, const std::string& path) {
+    if (path.empty()) return;
+    std::ifstream in(path);
+    if (!in.is_open()) return;
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    std::string text = buffer.str();
+    const std::string lower = toLowerCopy(text);
+
+    auto takeValue = [&](const std::string& key, std::string* out) {
+        size_t pos = lower.find(key);
+        if (pos == std::string::npos) return;
+        pos += key.size();
+        size_t end = text.find(';', pos);
+        if (end == std::string::npos) return;
+        std::string v = trimCopy(text.substr(pos, end - pos));
+        if (!v.empty()) *out = v;
+    };
+
+    takeValue("$bg:", &w.bg);
+    takeValue("$fg:", &w.fg);
+    takeValue("$accent:", &w.accent);
+
+    size_t windowPos = lower.find("window");
+    if (windowPos != std::string::npos) {
+        size_t start = lower.find('{', windowPos);
+        size_t stop = lower.find('}', start == std::string::npos ? windowPos : start + 1);
+        if (start != std::string::npos && stop != std::string::npos && stop > start) {
+            std::string block = text.substr(start + 1, stop - start - 1);
+            std::string bLower = toLowerCopy(block);
+
+            auto prop = [&](const std::string& name, std::string* out) {
+                size_t p = bLower.find(name);
+                if (p == std::string::npos) return;
+                p += name.size();
+                size_t e = block.find(';', p);
+                if (e == std::string::npos) return;
+                std::string v = trimCopy(block.substr(p, e - p));
+                if (!v.empty()) *out = v;
+            };
+
+            prop("background:", &w.bg);
+            prop("background-color:", &w.bg);
+            prop("color:", &w.fg);
+            prop("--accent:", &w.accent);
+        }
+    }
+}
+
+int tkAddWidget(TkWindowCtx& w, TkWidgetType type, const std::string& text) {
+    const int id = w.nextWidgetId++;
+    w.widgets[id] = TkWidgetCtx{id, type, text};
+    w.widgetOrder.push_back(id);
+    return id;
+}
+
+bool tkIsButton(const TkWindowCtx& w, int id) {
+    auto it = w.widgets.find(id);
+    if (it == w.widgets.end()) return false;
+    return it->second.type == TkWidgetType::Button;
+}
+
+void tkRender(const TkWindowCtx& w) {
+    std::cout << "=== " << w.title << " (" << w.width << "x" << w.height << ") ===" << std::endl;
+    for (int id : w.widgetOrder) {
+        auto it = w.widgets.find(id);
+        if (it == w.widgets.end()) continue;
+        const TkWidgetCtx& wd = it->second;
+        if (wd.type == TkWidgetType::Label) std::cout << "[Label #" << id << "] " << wd.text << std::endl;
+        if (wd.type == TkWidgetType::Entry) std::cout << "[Entry #" << id << "] " << wd.text << std::endl;
+        if (wd.type == TkWidgetType::Button) std::cout << "[Button #" << id << "] " << wd.text << std::endl;
+    }
 }
 
 std::string decodeEscapesForConsole(const std::string& in) {
@@ -1152,7 +1253,217 @@ EppNativeValue fn_threading_cpu_count(const EppNativeValue*, int) {
 
 EppNativeValue fn_asyncio_sleep(const EppNativeValue* args, int argc) { return fn_time_sleep(args, argc); }
 
-EppNativeValue fn_tkinter_available(const EppNativeValue*, int) { return makeBool(false); }
+EppNativeValue fn_tkinter_available(const EppNativeValue*, int) { return makeBool(true); }
+
+EppNativeValue fn_tkinter_window_create(const EppNativeValue* args, int argc) {
+    const std::string title = (argc >= 1) ? asString(args[0], "E++ App") : "E++ App";
+    const int width = (argc >= 2) ? asInt(args[1], 640) : 640;
+    const int height = (argc >= 3) ? asInt(args[2], 420) : 420;
+
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    const int id = g_nextTkWindowId++;
+    TkWindowCtx w;
+    w.id = id;
+    w.title = title;
+    w.width = std::max(220, width);
+    w.height = std::max(160, height);
+    g_tkWindows[id] = w;
+    return makeNumber(static_cast<double>(id));
+}
+
+EppNativeValue fn_tkinter_window_set_title(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const std::string title = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    it->second.title = title;
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_label_add(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeNumber(-1);
+    const int windowId = asInt(args[0], -1);
+    const std::string text = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeNumber(-1);
+    return makeNumber(static_cast<double>(tkAddWidget(it->second, TkWidgetType::Label, text)));
+}
+
+EppNativeValue fn_tkinter_button_add(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeNumber(-1);
+    const int windowId = asInt(args[0], -1);
+    const std::string text = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeNumber(-1);
+    return makeNumber(static_cast<double>(tkAddWidget(it->second, TkWidgetType::Button, text)));
+}
+
+EppNativeValue fn_tkinter_entry_add(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeNumber(-1);
+    const int windowId = asInt(args[0], -1);
+    const std::string text = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeNumber(-1);
+    return makeNumber(static_cast<double>(tkAddWidget(it->second, TkWidgetType::Entry, text)));
+}
+
+EppNativeValue fn_tkinter_widget_set_text(const EppNativeValue* args, int argc) {
+    if (argc < 3) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const int widgetId = asInt(args[1], -1);
+    const std::string text = asString(args[2], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    auto wt = it->second.widgets.find(widgetId);
+    if (wt == it->second.widgets.end()) return makeBool(false);
+    wt->second.text = text;
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_widget_get_text(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeString("");
+    const int windowId = asInt(args[0], -1);
+    const int widgetId = asInt(args[1], -1);
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeString("");
+    auto wt = it->second.widgets.find(widgetId);
+    if (wt == it->second.widgets.end()) return makeString("");
+    return makeString(wt->second.text);
+}
+
+EppNativeValue fn_tkinter_window_set_bg(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const std::string value = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    it->second.bg = value;
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_window_set_fg(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const std::string value = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    it->second.fg = value;
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_window_set_accent(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const std::string value = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    it->second.accent = value;
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_window_apply_scss(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+    const std::string path = asString(args[1], "");
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeBool(false);
+    tkTryApplyScss(it->second, path);
+    return makeBool(true);
+}
+
+EppNativeValue fn_tkinter_button_clicked(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeNumber(0);
+    const int windowId = asInt(args[0], -1);
+    const int buttonId = asInt(args[1], -1);
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeNumber(0);
+    if (it->second.lastClickedButton == buttonId) {
+        it->second.lastClickedButton = 0;
+        return makeNumber(1);
+    }
+    return makeNumber(0);
+}
+
+EppNativeValue fn_tkinter_window_show(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeNull();
+    const int windowId = asInt(args[0], -1);
+    std::lock_guard<std::mutex> lock(g_tkMutex);
+    auto it = g_tkWindows.find(windowId);
+    if (it == g_tkWindows.end()) return makeNull();
+    tkRender(it->second);
+    return makeNull();
+}
+
+EppNativeValue fn_tkinter_mainloop(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeBool(false);
+    const int windowId = asInt(args[0], -1);
+
+    TkWindowCtx snapshot;
+    {
+        std::lock_guard<std::mutex> lock(g_tkMutex);
+        auto it = g_tkWindows.find(windowId);
+        if (it == g_tkWindows.end()) return makeBool(false);
+        snapshot = it->second;
+    }
+
+    tkRender(snapshot);
+
+    std::unordered_map<int, std::string> entryUpdates;
+    std::vector<int> buttons;
+    for (int id : snapshot.widgetOrder) {
+        auto it = snapshot.widgets.find(id);
+        if (it == snapshot.widgets.end()) continue;
+        const TkWidgetCtx& wd = it->second;
+        if (wd.type == TkWidgetType::Entry) {
+            std::cout << "Input for Entry #" << id << " (empty = keep): ";
+            std::string line;
+            std::getline(std::cin, line);
+            if (!line.empty()) entryUpdates[id] = line;
+        } else if (wd.type == TkWidgetType::Button) {
+            buttons.push_back(id);
+        }
+    }
+
+    int click = 0;
+    if (!buttons.empty()) {
+        std::cout << "Click button id (0 = none): ";
+        std::string raw;
+        std::getline(std::cin, raw);
+        try {
+            click = std::stoi(trimCopy(raw));
+        } catch (...) {
+            click = 0;
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_tkMutex);
+        auto it = g_tkWindows.find(windowId);
+        if (it == g_tkWindows.end()) return makeBool(false);
+        for (const auto& kv : entryUpdates) {
+            auto wt = it->second.widgets.find(kv.first);
+            if (wt != it->second.widgets.end() && wt->second.type == TkWidgetType::Entry) wt->second.text = kv.second;
+        }
+        if (click > 0 && tkIsButton(it->second, click)) {
+            it->second.lastClickedButton = click;
+        } else {
+            it->second.lastClickedButton = 0;
+        }
+    }
+    return makeBool(true);
+}
 } // namespace
 
 extern "C" {
@@ -1261,6 +1572,20 @@ int epp_register_v2(EppNativeEntryV2* out_entries, int max_entries) {
         {"threading_cpu_count", 0, fn_threading_cpu_count},
         {"asyncio_sleep", 1, fn_asyncio_sleep},
         {"tkinter_available", 0, fn_tkinter_available},
+        {"tkinter_window_create", 3, fn_tkinter_window_create},
+        {"tkinter_window_set_title", 2, fn_tkinter_window_set_title},
+        {"tkinter_label_add", 6, fn_tkinter_label_add},
+        {"tkinter_button_add", 6, fn_tkinter_button_add},
+        {"tkinter_entry_add", 6, fn_tkinter_entry_add},
+        {"tkinter_widget_set_text", 3, fn_tkinter_widget_set_text},
+        {"tkinter_widget_get_text", 2, fn_tkinter_widget_get_text},
+        {"tkinter_window_set_bg", 2, fn_tkinter_window_set_bg},
+        {"tkinter_window_set_fg", 2, fn_tkinter_window_set_fg},
+        {"tkinter_window_set_accent", 2, fn_tkinter_window_set_accent},
+        {"tkinter_window_apply_scss", 2, fn_tkinter_window_apply_scss},
+        {"tkinter_button_clicked", 2, fn_tkinter_button_clicked},
+        {"tkinter_window_show", 1, fn_tkinter_window_show},
+        {"tkinter_mainloop", 1, fn_tkinter_mainloop},
     };
 
     const int total = static_cast<int>(sizeof(entries) / sizeof(entries[0]));

@@ -191,6 +191,17 @@ class TkApp {
         return this.cursor_y
     }
 
+    func theme(bg_hex, fg_hex, accent_hex) {
+        var ok_bg = this.set_bg(bg_hex)
+        var ok_fg = this.set_fg(fg_hex)
+        var ok_accent = this.set_accent(accent_hex)
+        return ok_bg and ok_fg and ok_accent
+    }
+
+    func apply_theme(bg_hex, fg_hex, accent_hex) {
+        return this.theme(bg_hex, fg_hex, accent_hex)
+    }
+
     func label_line(text) {
         var id = this.label(text, 16, this.cursor_y, this.default_w - 32, 24)
         this.cursor_y = this.cursor_y + this.row_h
@@ -213,8 +224,42 @@ class TkApp {
         return id
     }
 
+    func input_line(label_text, default_text) {
+        this.label_line(label_text)
+        return this.entry_line(default_text)
+    }
+
+    func print_line(text) {
+        return this.label_line(text)
+    }
+
+    func output_line(text) {
+        return this.print_line(text)
+    }
+
+    func set_output(widget_id, text) {
+        return this.set_text(widget_id, text)
+    }
+
+    func get_input(widget_id) {
+        return this.get_text(widget_id)
+    }
+
+    func button_line_ex(text, w) {
+        var id = this.button(text, 16, this.cursor_y, w, 30)
+        this.cursor_y = this.cursor_y + this.row_h
+        return id
+    }
+
     func btn_line(text) {
         return this.button_line(text)
+    }
+
+    func interact(button_id) {
+        if not this.mainloop() {
+            return false
+        }
+        return this.button_clicked(button_id)
     }
 
     func mainloop() {

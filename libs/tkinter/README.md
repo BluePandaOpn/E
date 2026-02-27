@@ -1,51 +1,41 @@
 # tkinter (tkinter)
 
-Libreria UI para E++ con backend nativo C++.
+Libreria UI para E++ con integracion C++ y modo runtime compatible por consola.
 
-## Estructura reorganizada
-- `src/epp/`: implementacion E++ real
-- `src/cpp/`: puente C++ nativo (`tkinter_*`)
-- `_native/`: contrato del runtime/bindings
-- `docs/`: documentacion tecnica y API
-- `scripts/`: scripts admin PowerShell (`.psm1`)
-- raiz: fachada publica y compatibilidad
+## Estructura
+- `__init__.epp`: entrada publica (`import tkinter`)
+- `core.epp`, `helpers.epp`, `runtime.epp`, `tk.epp`: fachada compatible
+- `src/epp/`: implementacion real de la API
+- `src/cpp/`: puente C++ (`tkinter_*`) con ventana/widgets/estilo
+- `docs/`: arquitectura + API
+- `scripts/`: utilidades administrativas
+- `test/`: ejemplos y tema SCSS
 
-## Import recomendado
+## Flujo recomendado (input + salida)
 ```epp
 import tkinter
 
-var ui = tk.Tk()
-tk.title(ui, "Mi app")
-if tk.geometry(ui, 720, 480) {
-    tk.Label(ui, "Hola", 16, 16, 200, 24)
-    tk.Entry(ui, "", 16, 48, 260, 28)
-    tk.Button(ui, "Cerrar", 16, 52, 120, 28)
+func main() {
+    var ui = tk.screen("Demo", 760, 460)
+    if not ui.ensure(760, 460) { return }
+
+    tk.theme(ui, "#0f172a", "#e2e8f0", "#38bdf8")
+    tk.apply_scss(ui, "libs/tkinter/test/theme.scss")
+
+    var name = tk.input_line(ui, "Nombre:", "Admin")
+    var out = tk.output_line(ui, "Salida: listo")
+    var ok = tk.button_line(ui, "Procesar")
+
     tk.mainloop(ui)
+    if tk.clicked(ui, ok) {
+        tk.set_output(ui, out, "Salida: hola " + tk.get(ui, name))
+        print(tk.get(ui, out))
+    }
 }
 ```
 
-`tk` se exporta desde `tk.epp` y se incluye en `__init__.epp`.
-
-## Archivos clave
-- `__init__.epp`: entrada del paquete (`import tkinter`)
-- `tk.epp`: namespace corto `tk`
-- `core.epp`, `helpers.epp`, `runtime.epp`: wrappers compatibles
-- `src/epp/*.epp`: logica real
-- `src/cpp/tk_native_bridge.*`: base C++ para integrar `_native`
-
-## Documentacion
-- `docs/ARCHITECTURE.md`
-- `docs/API.md`
-- `_native/README.md`
-
-## Script de administracion
-Modulo: `scripts/tk-admin.psm1`
-
-Funciones:
-- `Get-TkinterTree`
-- `Test-TkinterLayout`
-
-## Nuevas capacidades
-- Entrada/salida de datos: `tk.Entry`, `tk.get`, `tk.set`
-- Colores base: `tk.bg`, `tk.fg`, `tk.accent`
-- Estilo SCSS: `tk.apply_scss(ui, "ruta.scss")`
+## Capacidades
+- Widgets: `Label`, `Button`, `Entry`
+- I/O: `get`, `set`, `input_line`, `output_line`, `print_line`
+- Estilo: `bg`, `fg`, `accent`, `theme`, `apply_scss`
+- Integracion C++: backend en `src/cpp/tk_native_bridge.cpp`

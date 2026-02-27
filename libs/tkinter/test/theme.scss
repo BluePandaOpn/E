@@ -1,8 +1,9 @@
-// SCSS de ejemplo para ventana tkinter (aplica via backend nativo)
-$bg: #111827;
-$fg: #e5e7eb;
-$accent: #22c55e;
-$panel: #1f2937;
+// Tema para panel de tareas tkinter (aplica via backend nativo)
+$bg: #0f172a;
+$fg: #e2e8f0;
+$accent: #38bdf8;
+$panel: #1e293b;
+$muted: #94a3b8;
 
 window {
   background: $bg;
@@ -11,15 +12,28 @@ window {
 
 label {
   color: $fg;
+  font-size: 14px;
 }
 
 entry {
   background: $panel;
   color: $fg;
   border: 1px solid $accent;
+  border-radius: 6px;
+  padding: 4px 8px;
 }
 
 button {
   background: $accent;
-  color: #052e16;
+  color: #082f49;
+  border-radius: 6px;
+  border: 0;
+}
+
+button:hover {
+  background: #7dd3fc;
+}
+
+.subtle {
+  color: $muted;
 }

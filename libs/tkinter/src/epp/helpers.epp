@@ -25,9 +25,7 @@ func can_use() {
 
 func create_window(title, width, height) {
     var a = TkApp(title)
-    if not a.create(width, height) {
-        return a
-    }
+    a.create(width, height)
     return a
 }
 
@@ -59,6 +57,10 @@ func demo(title) {
     return a.mainloop()
 }
 
+func screen(title, width, height) {
+    return create_window(title, width, height)
+}
+
 class TkNamespace {
     func available() {
         return is_available()
@@ -69,7 +71,7 @@ class TkNamespace {
     }
 
     func app(title) {
-        return app(title)
+        return TkApp(title)
     }
 
     func Tk() {
@@ -77,27 +79,51 @@ class TkNamespace {
     }
 
     func window(title) {
-        return window(title)
+        return TkApp(title)
     }
 
     func create_app(title) {
-        return create_app(title)
+        return TkApp(title)
     }
 
     func create_window(title, width, height) {
-        return create_window(title, width, height)
+        var a = TkApp(title)
+        a.create(width, height)
+        return a
+    }
+
+    func screen(title, width, height) {
+        var a = TkApp(title)
+        a.create(width, height)
+        return a
     }
 
     func run(title, width, height) {
-        return run(title, width, height)
+        var a = TkApp(title)
+        if not a.create(width, height) {
+            return false
+        }
+        return a.mainloop()
     }
 
     func simple(title, text) {
-        return simple(title, text)
+        var a = TkApp(title)
+        if not a.create(480, 220) {
+            return false
+        }
+        a.label_line(text)
+        a.button_line("Cerrar")
+        return a.mainloop()
     }
 
     func demo(title) {
-        return demo(title)
+        var a = TkApp(title)
+        if not a.create(640, 420) {
+            return false
+        }
+        a.label("E++ Tk Native (C++)", 16, 16, 260, 24)
+        a.button("Cerrar", 16, 52, 120, 28)
+        return a.mainloop()
     }
 
     func label(ui, text, x, y, w, h) {
@@ -194,6 +220,42 @@ class TkNamespace {
 
     func apply_scss(ui, path) {
         return ui.apply_scss(path)
+    }
+
+    func theme(ui, bg_hex, fg_hex, accent_hex) {
+        return ui.theme(bg_hex, fg_hex, accent_hex)
+    }
+
+    func apply_theme(ui, bg_hex, fg_hex, accent_hex) {
+        return ui.theme(bg_hex, fg_hex, accent_hex)
+    }
+
+    func input_line(ui, label_text, default_text) {
+        return ui.input_line(label_text, default_text)
+    }
+
+    func print_line(ui, text) {
+        return ui.print_line(text)
+    }
+
+    func output_line(ui, text) {
+        return ui.output_line(text)
+    }
+
+    func set_output(ui, widget_id, text) {
+        return ui.set_output(widget_id, text)
+    }
+
+    func get_input(ui, widget_id) {
+        return ui.get_input(widget_id)
+    }
+
+    func button_line_ex(ui, text, w) {
+        return ui.button_line_ex(text, w)
+    }
+
+    func interact(ui, button_id) {
+        return ui.interact(button_id)
     }
 
     func runtime() {
