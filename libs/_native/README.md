@@ -1,30 +1,48 @@
 # _native
 
-Paquete: `stdlib._native`
+Libreria base de runtime para E++, pensada para funcionar en modo builtin (sin `loadlib`).
 
-## Objetivo
-Libreria estandar para E++ ubicada en `lib/libs/_native`.
+## Estado
+- Version del modulo: `2.1.0`
+- API: `2026.1`
+- Implementacion: `100% E++`
 
-## Integracion C++
-No. Esta libreria es 100% E++.
+## Estructura recomendada
+- `__init__.epp`: entrada publica del paquete.
+- `_native.epp`: capa de compatibilidad legacy.
+- `src/`: fuente modular de la libreria.
+- `scripts/`: automatizacion y validaciones.
+- `docs/`: documentacion tecnica.
+- `archives/`: historial o respaldos de soporte.
 
-## API publica (funciones)
-- `builtin_mode(...)`
-- `runtime_name(...)`
-
-## Clases
-- (sin clases publicas)
+## API publica
+- `builtin_mode()`
+- `runtime_name()`
+- `module_name()`
+- `module_version()`
+- `api_version()`
+- `is_stable()`
+- `build_target()`
+- `health_check()`
+- `diagnostics_hint()`
+- `capabilities_text()`
 
 ## Uso rapido
 ```epp
-import stdlib._native
+import _native
+
+print(_native.module_name())
+print(_native.module_version())
+print(_native.health_check())
 ```
 
-## Archivos
-- `__init__.epp`: entrada del paquete.
-- `*.epp`: implementacion adicional de la libreria.
+## Validacion
+Ejecuta:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/validate.ps1
+```
 
-## Notas
-- Para diagnosticar carga de librerias usa: `epp doctor --imports`.
-- Para reparar paquetes DID con estructura invalida usa: `did repair`.
+## Diagnostico
+- Imports: `epp doctor --imports`
+- Reparacion DID (si aplica): `did repair`
 

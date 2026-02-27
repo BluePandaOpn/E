@@ -1,5 +1,5 @@
-// Runtime builtin mode: no requiere loadlib en este entorno.
-// Este archivo mantiene compatibilidad para importaciones legacy.
+// Fuente principal modular de la libreria _native.
+// Mantiene la misma API que el archivo raiz para facilitar migracion.
 
 func builtin_mode() {
     return true

@@ -1,0 +1,3 @@
+@package "_native.src"
+
+from _native.src._native import *
