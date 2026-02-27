@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <iomanip>
+#include <iostream>
 #include <mutex>
 #include <random>
 #include <sstream>
@@ -18,8 +20,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <io.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #pragma comment(lib, "Ws2_32.lib")
 #else
 #include <arpa/inet.h>
@@ -62,6 +66,7 @@ EppNativeValue makeString(const std::string& s) {
 
 bool isNumber(const EppNativeValue& v) { return v.type == EPP_NATIVE_NUMBER; }
 bool isString(const EppNativeValue& v) { return v.type == EPP_NATIVE_STRING && v.string_value != nullptr; }
+bool isBool(const EppNativeValue& v) { return v.type == EPP_NATIVE_BOOL; }
 
 int asInt(const EppNativeValue& v, int fallback) {
     if (v.type == EPP_NATIVE_NUMBER) return static_cast<int>(v.number_value);
@@ -70,6 +75,12 @@ int asInt(const EppNativeValue& v, int fallback) {
 
 std::string asString(const EppNativeValue& v, const std::string& fallback) {
     if (v.type == EPP_NATIVE_STRING && v.string_value) return std::string(v.string_value);
+    return fallback;
+}
+
+bool asBool(const EppNativeValue& v, bool fallback) {
+    if (v.type == EPP_NATIVE_BOOL) return v.bool_value != 0;
+    if (v.type == EPP_NATIVE_NUMBER) return v.number_value != 0.0;
     return fallback;
 }
 
@@ -397,6 +408,137 @@ std::string urlEncode(const std::string& in) {
     return out.str();
 }
 
+int clamp255Int(int n) {
+    if (n < 0) return 0;
+    if (n > 255) return 255;
+    return n;
+}
+
+std::string ansiReset() { return "\033[0m"; }
+std::string ansiBold() { return "\033[1m"; }
+std::string ansiDim() { return "\033[2m"; }
+std::string ansiUnderline() { return "\033[4m"; }
+
+std::string ansiFgCode(std::string name) {
+    name = toLowerCopy(trimCopy(name));
+    if (name.empty()) return "";
+    if (name == "red" || name == "rojo") return "\033[31m";
+    if (name == "green" || name == "verde") return "\033[32m";
+    if (name == "blue" || name == "azul") return "\033[34m";
+    if (name == "yellow" || name == "amarillo") return "\033[33m";
+    if (name == "magenta") return "\033[35m";
+    if (name == "cyan") return "\033[36m";
+    if (name == "white" || name == "blanco") return "\033[37m";
+    return "";
+}
+
+std::string ansiBgCode(std::string name) {
+    name = toLowerCopy(trimCopy(name));
+    if (name.empty()) return "";
+    if (name == "red" || name == "rojo") return "\033[41m";
+    if (name == "green" || name == "verde") return "\033[42m";
+    if (name == "blue" || name == "azul") return "\033[44m";
+    if (name == "yellow" || name == "amarillo") return "\033[43m";
+    if (name == "magenta") return "\033[45m";
+    if (name == "cyan") return "\033[46m";
+    if (name == "white" || name == "blanco") return "\033[47m";
+    return "";
+}
+
+std::string ansiRgbCode(int r, int g, int b) {
+    std::ostringstream out;
+    out << "\033[38;2;" << clamp255Int(r) << ';' << clamp255Int(g) << ';' << clamp255Int(b) << 'm';
+    return out.str();
+}
+
+std::string ansiBgRgbCode(int r, int g, int b) {
+    std::ostringstream out;
+    out << "\033[48;2;" << clamp255Int(r) << ';' << clamp255Int(g) << ';' << clamp255Int(b) << 'm';
+    return out.str();
+}
+
+std::string colorApply(const std::string& text, const std::string& code) { return code + text + ansiReset(); }
+
+std::string colorApplyStyle(const std::string& text, const std::string& colorCode, const std::string& extraCode) {
+    return extraCode + colorCode + text + ansiReset();
+}
+
+std::string ansiStrip(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size();) {
+        if (in[i] == '\x1B' && i + 1 < in.size() && in[i + 1] == '[') {
+            i += 2;
+            while (i < in.size() && in[i] != 'm') ++i;
+            if (i < in.size()) ++i;
+            continue;
+        }
+        out.push_back(in[i]);
+        ++i;
+    }
+    return out;
+}
+
+bool colorStdoutIsConsole() {
+#ifdef _WIN32
+    return _isatty(_fileno(stdout)) != 0;
+#else
+    return isatty(STDOUT_FILENO) != 0;
+#endif
+}
+
+bool colorConsoleInit() {
+#ifdef _WIN32
+    const HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE || hOut == nullptr) return false;
+    DWORD mode = 0;
+    if (!GetConsoleMode(hOut, &mode)) return false;
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (!SetConsoleMode(hOut, mode)) return false;
+    return true;
+#else
+    return colorStdoutIsConsole();
+#endif
+}
+
+std::string decodeEscapesForConsole(const std::string& in) {
+    std::string out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        if (in[i] == '\\' && i + 1 < in.size()) {
+            if (in.compare(i, 4, "\\033") == 0) {
+                out.push_back('\x1B');
+                i += 3;
+                continue;
+            }
+            if (in.compare(i, 4, "\\x1b") == 0 || in.compare(i, 4, "\\x1B") == 0) {
+                out.push_back('\x1B');
+                i += 3;
+                continue;
+            }
+        }
+        out.push_back(in[i]);
+    }
+    return out;
+}
+
+std::string nativeValueToString(const EppNativeValue& v) {
+    switch (v.type) {
+        case EPP_NATIVE_STRING:
+            return v.string_value ? std::string(v.string_value) : std::string();
+        case EPP_NATIVE_NUMBER: {
+            std::ostringstream out;
+            out << v.number_value;
+            return out.str();
+        }
+        case EPP_NATIVE_BOOL:
+            return v.bool_value ? "true" : "false";
+        case EPP_NATIVE_NULL:
+        default:
+            return "null";
+    }
+}
+
 EppNativeValue fn_time_time(const EppNativeValue*, int) {
     const auto now = std::chrono::system_clock::now().time_since_epoch();
     return makeNumber(std::chrono::duration<double>(now).count());
@@ -611,6 +753,230 @@ EppNativeValue fn_csv_join2(const EppNativeValue* args, int argc) {
 EppNativeValue fn_urllib_quote(const EppNativeValue* args, int argc) {
     if (argc < 1 || !isString(args[0])) return makeString("");
     return makeString(urlEncode(args[0].string_value));
+}
+
+EppNativeValue fn_color_reset(const EppNativeValue*, int) { return makeString(ansiReset()); }
+EppNativeValue fn_color_bold(const EppNativeValue*, int) { return makeString(ansiBold()); }
+EppNativeValue fn_color_dim(const EppNativeValue*, int) { return makeString(ansiDim()); }
+EppNativeValue fn_color_underline(const EppNativeValue*, int) { return makeString(ansiUnderline()); }
+
+EppNativeValue fn_color_apply(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), asString(args[1], "")));
+}
+
+EppNativeValue fn_color_apply_style(const EppNativeValue* args, int argc) {
+    if (argc < 3) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), asString(args[1], ""), asString(args[2], "")));
+}
+
+EppNativeValue fn_color_strip_ansi(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(ansiStrip(asString(args[0], "")));
+}
+
+EppNativeValue fn_color_fg_code(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(ansiFgCode(asString(args[0], "")));
+}
+
+EppNativeValue fn_color_bg_code(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(ansiBgCode(asString(args[0], "")));
+}
+
+EppNativeValue fn_color_colorize(const EppNativeValue* args, int argc) {
+    if (argc < 6) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string fg = asString(args[1], "");
+    const std::string bg = asString(args[2], "");
+    const bool bold = asBool(args[3], false);
+    const bool underline = asBool(args[4], false);
+    const bool dim = asBool(args[5], false);
+
+    std::string pref;
+    if (bold) pref += ansiBold();
+    if (underline) pref += ansiUnderline();
+    if (dim) pref += ansiDim();
+    pref += ansiFgCode(fg);
+    pref += ansiBgCode(bg);
+    return makeString(pref + text + ansiReset());
+}
+
+EppNativeValue fn_color_paint(const EppNativeValue* args, int argc) {
+    if (argc < 2) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string fg = asString(args[1], "");
+    return makeString(ansiFgCode(fg) + text + ansiReset());
+}
+
+EppNativeValue fn_color_highlight(const EppNativeValue* args, int argc) {
+    if (argc < 3) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string fg = asString(args[1], "");
+    const std::string bg = asString(args[2], "");
+    return makeString(ansiFgCode(fg) + ansiBgCode(bg) + text + ansiReset());
+}
+
+EppNativeValue fn_color_clamp255(const EppNativeValue* args, int argc) {
+    if (argc < 1 || !isNumber(args[0])) return makeNumber(0);
+    return makeNumber(static_cast<double>(clamp255Int(static_cast<int>(args[0].number_value))));
+}
+
+EppNativeValue fn_color_rgb_code(const EppNativeValue* args, int argc) {
+    if (argc < 3) return makeString("");
+    return makeString(ansiRgbCode(asInt(args[0], 0), asInt(args[1], 0), asInt(args[2], 0)));
+}
+
+EppNativeValue fn_color_bg_rgb_code(const EppNativeValue* args, int argc) {
+    if (argc < 3) return makeString("");
+    return makeString(ansiBgRgbCode(asInt(args[0], 0), asInt(args[1], 0), asInt(args[2], 0)));
+}
+
+EppNativeValue fn_color_rgb(const EppNativeValue* args, int argc) {
+    if (argc < 4) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string code = ansiRgbCode(asInt(args[1], 0), asInt(args[2], 0), asInt(args[3], 0));
+    return makeString(code + text + ansiReset());
+}
+
+EppNativeValue fn_color_bg_rgb(const EppNativeValue* args, int argc) {
+    if (argc < 4) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string code = ansiBgRgbCode(asInt(args[1], 0), asInt(args[2], 0), asInt(args[3], 0));
+    return makeString(code + text + ansiReset());
+}
+
+EppNativeValue fn_color_rgb_style(const EppNativeValue* args, int argc) {
+    if (argc < 7) return makeString("");
+    const std::string text = asString(args[0], "");
+    const std::string fg = ansiRgbCode(asInt(args[1], 0), asInt(args[2], 0), asInt(args[3], 0));
+    const std::string bg = ansiBgRgbCode(asInt(args[4], 0), asInt(args[5], 0), asInt(args[6], 0));
+    return makeString(fg + bg + text + ansiReset());
+}
+
+EppNativeValue fn_color_rojo(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[31m"));
+}
+EppNativeValue fn_color_verde(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[32m"));
+}
+EppNativeValue fn_color_azul(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[34m"));
+}
+EppNativeValue fn_color_amarillo(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[33m"));
+}
+EppNativeValue fn_color_magenta(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[35m"));
+}
+EppNativeValue fn_color_cyan(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[36m"));
+}
+EppNativeValue fn_color_blanco(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[37m"));
+}
+
+EppNativeValue fn_color_bg_rojo(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[41m"));
+}
+EppNativeValue fn_color_bg_verde(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[42m"));
+}
+EppNativeValue fn_color_bg_azul(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[44m"));
+}
+EppNativeValue fn_color_bg_amarillo(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[43m"));
+}
+EppNativeValue fn_color_bg_magenta(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[45m"));
+}
+EppNativeValue fn_color_bg_cyan(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[46m"));
+}
+EppNativeValue fn_color_bg_blanco(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApply(asString(args[0], ""), "\033[47m"));
+}
+
+EppNativeValue fn_color_negrita(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "", ansiBold()));
+}
+
+EppNativeValue fn_color_subrayado(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "", ansiUnderline()));
+}
+
+EppNativeValue fn_color_tenue(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "", ansiDim()));
+}
+
+EppNativeValue fn_color_alerta(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "\033[31m", ansiBold()));
+}
+
+EppNativeValue fn_color_exito(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "\033[32m", ansiBold()));
+}
+
+EppNativeValue fn_color_info(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    return makeString(colorApplyStyle(asString(args[0], ""), "\033[36m", ansiBold()));
+}
+
+EppNativeValue fn_color_error(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const std::string text = asString(args[0], "");
+    return makeString(ansiBold() + ansiFgCode("red") + text + ansiReset());
+}
+
+EppNativeValue fn_color_success(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const std::string text = asString(args[0], "");
+    return makeString(ansiBold() + ansiFgCode("green") + text + ansiReset());
+}
+
+EppNativeValue fn_color_warning(const EppNativeValue* args, int argc) {
+    if (argc < 1) return makeString("");
+    const std::string text = asString(args[0], "");
+    return makeString(ansiBold() + ansiFgCode("yellow") + text + ansiReset());
+}
+
+EppNativeValue fn_color_console_init(const EppNativeValue*, int) {
+    return makeBool(colorConsoleInit());
+}
+
+EppNativeValue fn_color_stdout_is_console(const EppNativeValue*, int) {
+    return makeBool(colorStdoutIsConsole());
+}
+
+EppNativeValue fn_color_print(const EppNativeValue* args, int argc) {
+    (void)colorConsoleInit();
+    for (int i = 0; i < argc; ++i) {
+        if (i > 0) std::cout << ' ';
+        std::cout << decodeEscapesForConsole(nativeValueToString(args[i]));
+    }
+    std::cout << std::endl;
+    return makeNull();
 }
 
 EppNativeValue fn_http_get(const EppNativeValue*, int) {
@@ -833,6 +1199,50 @@ int epp_register_v2(EppNativeEntryV2* out_entries, int max_entries) {
         {"json_parse_number", 1, fn_json_parse_number},
         {"csv_join2", 2, fn_csv_join2},
         {"urllib_quote", 1, fn_urllib_quote},
+        {"color_reset", 0, fn_color_reset},
+        {"color_bold", 0, fn_color_bold},
+        {"color_dim", 0, fn_color_dim},
+        {"color_underline", 0, fn_color_underline},
+        {"color_apply", 2, fn_color_apply},
+        {"color_apply_style", 3, fn_color_apply_style},
+        {"color_strip_ansi", 1, fn_color_strip_ansi},
+        {"color_fg_code", 1, fn_color_fg_code},
+        {"color_bg_code", 1, fn_color_bg_code},
+        {"color_colorize", 6, fn_color_colorize},
+        {"color_paint", 2, fn_color_paint},
+        {"color_highlight", 3, fn_color_highlight},
+        {"color_clamp255", 1, fn_color_clamp255},
+        {"color_rgb_code", 3, fn_color_rgb_code},
+        {"color_bg_rgb_code", 3, fn_color_bg_rgb_code},
+        {"color_rgb", 4, fn_color_rgb},
+        {"color_bg_rgb", 4, fn_color_bg_rgb},
+        {"color_rgb_style", 7, fn_color_rgb_style},
+        {"color_rojo", 1, fn_color_rojo},
+        {"color_verde", 1, fn_color_verde},
+        {"color_azul", 1, fn_color_azul},
+        {"color_amarillo", 1, fn_color_amarillo},
+        {"color_magenta", 1, fn_color_magenta},
+        {"color_cyan", 1, fn_color_cyan},
+        {"color_blanco", 1, fn_color_blanco},
+        {"color_bg_rojo", 1, fn_color_bg_rojo},
+        {"color_bg_verde", 1, fn_color_bg_verde},
+        {"color_bg_azul", 1, fn_color_bg_azul},
+        {"color_bg_amarillo", 1, fn_color_bg_amarillo},
+        {"color_bg_magenta", 1, fn_color_bg_magenta},
+        {"color_bg_cyan", 1, fn_color_bg_cyan},
+        {"color_bg_blanco", 1, fn_color_bg_blanco},
+        {"color_negrita", 1, fn_color_negrita},
+        {"color_subrayado", 1, fn_color_subrayado},
+        {"color_tenue", 1, fn_color_tenue},
+        {"color_alerta", 1, fn_color_alerta},
+        {"color_exito", 1, fn_color_exito},
+        {"color_info", 1, fn_color_info},
+        {"color_error", 1, fn_color_error},
+        {"color_success", 1, fn_color_success},
+        {"color_warning", 1, fn_color_warning},
+        {"color_console_init", 0, fn_color_console_init},
+        {"color_stdout_is_console", 0, fn_color_stdout_is_console},
+        {"color_print", -1, fn_color_print},
         {"http_get", 0, fn_http_get},
         {"http_server_listen", 2, fn_http_server_listen},
         {"http_server_accept", 1, fn_http_server_accept},

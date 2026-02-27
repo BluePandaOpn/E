@@ -1,17 +1,3 @@
 @package "color"
 
-// Entrada publica del paquete. Reexporta modulos internos.
-from color.constants import *
-from color.color import ConsolaColor, strip_ansi
-from color.palette import instancia, init, colorear, estilo
-from color.palette import rojo, verde, azul, amarillo, magenta, cyan, blanco
-from color.palette import bg_rojo, bg_verde, bg_azul, bg_amarillo, bg_magenta, bg_cyan, bg_blanco
-from color.styles import negrita, subrayado, tenue, alerta, exito, info
-from color.rgb import clamp255, rgb_code, bg_rgb_code, rgb, bg_rgb, rgb_style
-from color.names import fg_code, bg_code
-from color.compose import colorize, paint, highlight
-from color.printing import print_color, print_style, print_rgb, print_bg_rgb
-from color.semantic import error, success, warning, log_error, log_success, log_warning
-from color.api import Color, ColorAPI
-from color.easy import *
-from color.runtime import native_runtime, native_builtin_mode, load_native_backend, native_extension_hint
+import "./color.epp"

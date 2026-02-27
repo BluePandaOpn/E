@@ -1,8 +1,0 @@
-@package "color.easy"
-
-// Capa de compatibilidad para API "easy" previa.
-from color.names import fg_code, bg_code
-from color.compose import colorize, paint, highlight
-from color.printing import print_color, print_style, print_rgb, print_bg_rgb
-from color.semantic import error, success, warning, log_error, log_success, log_warning
-from color.api import ColorAPI, Color

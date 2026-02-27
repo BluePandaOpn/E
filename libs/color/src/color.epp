@@ -1,0 +1,88 @@
+import _native
+
+// Carga de funciones nativas de color desde native_std_cpp.dll
+var _color_native_loaded = loadlib("../../../lib/native_std_cpp.dll")
+
+var RESET = color_reset()
+var BOLD = color_bold()
+var DIM = color_dim()
+var UNDERLINE = color_underline()
+
+func reset() { return color_reset() }
+func bold_code() { return color_bold() }
+func dim_code() { return color_dim() }
+func underline_code() { return color_underline() }
+
+func fg_code(name) { return color_fg_code(name) }
+func bg_code(name) { return color_bg_code(name) }
+
+func apply(text, ansi_code) { return color_apply(text, ansi_code) }
+func apply_style(text, color_code, extra_code) { return color_apply_style(text, color_code, extra_code) }
+func strip_ansi(text) { return color_strip_ansi(text) }
+
+func paint(text, fg) { return color_paint(text, fg) }
+func highlight(text, fg, bg) { return color_highlight(text, fg, bg) }
+func colorize(text, fg, bg, bold, underline, dim) { return color_colorize(text, fg, bg, bold, underline, dim) }
+
+func clamp255(n) { return color_clamp255(n) }
+func rgb_code(r, g, b) { return color_rgb_code(r, g, b) }
+func bg_rgb_code(r, g, b) { return color_bg_rgb_code(r, g, b) }
+func rgb(text, r, g, b) { return color_rgb(text, r, g, b) }
+func bg_rgb(text, r, g, b) { return color_bg_rgb(text, r, g, b) }
+func rgb_style(text, fr, fg, fb, br, bg, bb) { return color_rgb_style(text, fr, fg, fb, br, bg, bb) }
+
+func rojo(text) { return color_rojo(text) }
+func verde(text) { return color_verde(text) }
+func azul(text) { return color_azul(text) }
+func amarillo(text) { return color_amarillo(text) }
+func magenta(text) { return color_magenta(text) }
+func cyan(text) { return color_cyan(text) }
+func blanco(text) { return color_blanco(text) }
+
+func bg_rojo(text) { return color_bg_rojo(text) }
+func bg_verde(text) { return color_bg_verde(text) }
+func bg_azul(text) { return color_bg_azul(text) }
+func bg_amarillo(text) { return color_bg_amarillo(text) }
+func bg_magenta(text) { return color_bg_magenta(text) }
+func bg_cyan(text) { return color_bg_cyan(text) }
+func bg_blanco(text) { return color_bg_blanco(text) }
+
+func negrita(text) { return color_negrita(text) }
+func subrayado(text) { return color_subrayado(text) }
+func tenue(text) { return color_tenue(text) }
+func alerta(text) { return color_alerta(text) }
+func exito(text) { return color_exito(text) }
+func info(text) { return color_info(text) }
+
+func error(text) { return color_error(text) }
+func success(text) { return color_success(text) }
+func warning(text) { return color_warning(text) }
+
+func console_init() { return color_console_init() }
+func stdout_is_console() { return color_stdout_is_console() }
+
+func printc(text) {
+    color_print(text)
+    return null
+}
+
+func print_rgb(text, r, g, b) {
+    color_print(color_rgb(text, r, g, b))
+    return null
+}
+
+func module_name() {
+    return "color"
+}
+
+func module_version() {
+    return "2.0.0"
+}
+
+func native_runtime() {
+    return _native.runtime_name()
+}
+
+func native_builtin_mode() {
+    return _native.builtin_mode()
+}

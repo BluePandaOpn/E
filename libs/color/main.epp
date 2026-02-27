@@ -1,0 +1,7 @@
+import "./color.epp"
+
+func demo() {
+    console_init()
+    printc(rgb("Color 24-bit listo", 24, 180, 255))
+    printc(highlight("Fondo + frente", "white", "blue"))
+}
