@@ -27,9 +27,34 @@ func colorize(text, fg, bg, bold, underline, dim) { return color_colorize(text, 
 func clamp255(n) { return color_clamp255(n) }
 func rgb_code(r, g, b) { return color_rgb_code(r, g, b) }
 func bg_rgb_code(r, g, b) { return color_bg_rgb_code(r, g, b) }
-func rgb(text, r, g, b) { return color_rgb(text, r, g, b) }
-func bg_rgb(text, r, g, b) { return color_bg_rgb(text, r, g, b) }
+
+// API principal unificada:
+// - rgb(r,g,b) devuelve una funcion aplicadora: var Azul = rgb(...); Azul("texto")
+// - bg_rgb(r,g,b) idem para fondo.
+func rgb(r, g, b) {
+    var code = color_rgb_code(r, g, b)
+    func painter(text) {
+        return color_apply(text, code)
+    }
+    return painter
+}
+
+func bg_rgb(r, g, b) {
+    var code = color_bg_rgb_code(r, g, b)
+    func painter(text) {
+        return color_apply(text, code)
+    }
+    return painter
+}
 func rgb_style(text, fr, fg, fb, br, bg, bb) { return color_rgb_style(text, fr, fg, fb, br, bg, bb) }
+
+// Helpers de uso flexible:
+// - Crear codigos reutilizables RGB para guardarlos en variables.
+// - Aplicar/imprimir estilos sin tener que concatenar manualmente.
+func rgb_color(r, g, b) { return rgb_code(r, g, b) }
+func bg_color(r, g, b) { return bg_rgb_code(r, g, b) }
+func paint_code(text, fg_ansi) { return color_apply(text, fg_ansi) }
+func paint_codes(text, fg_ansi, extra_ansi) { return color_apply_style(text, fg_ansi, extra_ansi) }
 
 func rojo(text) { return color_rojo(text) }
 func verde(text) { return color_verde(text) }
@@ -67,16 +92,30 @@ func printc(text) {
 }
 
 func print_rgb(text, r, g, b) {
-    color_print(color_rgb(text, r, g, b))
+    var painter = rgb(r, g, b)
+    color_print(painter(text))
     return null
 }
+
+func print_with(text, fg_ansi) {
+    color_print(color_apply(text, fg_ansi))
+    return null
+}
+
+func print_with_style(text, fg_ansi, extra_ansi) {
+    color_print(color_apply_style(text, fg_ansi, extra_ansi))
+    return null
+}
+
+func console_setup() { return color_console_init() }
+func supports_ansi() { return color_stdout_is_console() }
 
 func module_name() {
     return "color"
 }
 
 func module_version() {
-    return "2.0.0"
+    return "3.0.0"
 }
 
 func native_runtime() {

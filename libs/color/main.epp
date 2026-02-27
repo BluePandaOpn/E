@@ -2,6 +2,10 @@ import "./color.epp"
 
 func demo() {
     console_init()
-    printc(rgb("Color 24-bit listo", 24, 180, 255))
-    printc(highlight("Fondo + frente", "white", "blue"))
+    var Cielo = rgb(24, 180, 255)
+    print(Cielo("Color 24-bit listo"))
+    print(highlight("Fondo + frente", "white", "blue"))
+
+    var Azul = rgb(6, 63, 250)
+    print(Azul("Hola"))
 }

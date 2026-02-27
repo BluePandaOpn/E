@@ -1,4 +1,5 @@
-import color
+import "../color.epp"
 
 console_init()
-printc(rgb("ANSI Probe", 255, 170, 0))
+var Probe = rgb(255, 170, 0)
+print(Probe("ANSI Probe"))
