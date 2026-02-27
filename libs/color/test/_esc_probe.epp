@@ -1,4 +1,4 @@
-import "../color.epp"
+import "../Juegos/GO/FoxVS/Leng/lib/libs/color/color.epp"
 
 console_init()
 var Probe = rgb(255, 170, 0)
